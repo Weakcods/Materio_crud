@@ -1,0 +1,58 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>{% block title %}{% endblock %} | Materio</title>
+  
+  {% block stylesheets %}
+  <!-- Icons -->
+  <link rel="stylesheet" href="{% static 'vendor/fonts/remixicon.css' %}" />
+  
+  <!-- Core CSS -->
+  <link rel="stylesheet" href="{% static 'vendor/css/core.css' %}" />
+  <link rel="stylesheet" href="{% static 'vendor/css/theme-default.css' %}" />
+  <link rel="stylesheet" href="{% static 'css/demo.css' %}" />
+
+  <!-- Vendors CSS -->
+  <link rel="stylesheet" href="{% static 'vendor/libs/perfect-scrollbar/perfect-scrollbar.css' %}" />
+
+  <!-- Custom CSS -->
+  <link rel="stylesheet" href="{% static 'css/custom.css' %}" />
+  {% endblock stylesheets %}
+  
+  {% block page_css %}{% endblock page_css %}
+</head>
+
+<body>
+  <div class="layout-wrapper layout-content-navbar">
+    <div class="layout-container">
+      {% include 'layout/partials/menu/vertical/vertical_menu.html' %}
+      
+      <div class="layout-page">
+        {% include 'layout/partials/navbar/navbar.html' %}
+        
+        <div class="content-wrapper">
+          {% block content %}{% endblock content %}
+          {% include 'layout/partials/footer/footer.html' %}
+        </div>
+      </div>
+    </div>
+  </div>
+
+  {% block javascripts %}
+  <!-- Core JS -->
+  <script src="{% static 'vendor/libs/jquery/jquery.js' %}"></script>
+  <script src="{% static 'vendor/libs/popper/popper.js' %}"></script>
+  <script src="{% static 'vendor/js/bootstrap.js' %}"></script>
+  <script src="{% static 'vendor/libs/perfect-scrollbar/perfect-scrollbar.js' %}"></script>
+  <script src="{% static 'vendor/js/menu.js' %}"></script>
+
+  <!-- Main JS -->
+  <script src="{% static 'vendor/js/helpers.js' %}"></script>
+  <script src="{% static 'js/config.js' %}"></script>
+  <script src="{% static 'js/main.js' %}"></script>
+  {% endblock javascripts %}
+</body>
+</html>

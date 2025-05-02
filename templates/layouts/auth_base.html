@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{% block title %}{% endblock %} | Materio</title>
+  
+  {% block stylesheets %}
+  <!-- Core CSS -->
+  <link rel="stylesheet" href="{% static 'vendor/css/core.css' %}" />
+  <link rel="stylesheet" href="{% static 'vendor/css/theme-default.css' %}" />
+  <link rel="stylesheet" href="{% static 'css/demo.css' %}" />
+  {% endblock stylesheets %}
+
+  {% block page_css %}{% endblock page_css %}
+</head>
+
+<body>
+  {% block content %}{% endblock content %}
+
+  {% block javascripts %}
+  <!-- Core JS -->
+  <script src="{% static 'vendor/js/helpers.js' %}"></script>
+  <script src="{% static 'js/config.js' %}"></script>
+  {% endblock javascripts %}
+</body>
+</html>
