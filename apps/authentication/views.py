@@ -32,11 +32,11 @@ class AuthView(TemplateView):
 
 @login_required
 def home(request):
-    return redirect('dashboard')
+    return redirect('index')
 
 def register_view(request):
     if request.user.is_authenticated:
-        return redirect('dashboard')
+        return redirect('index')
         
     if request.method == 'POST':
         username = request.POST.get('username')
@@ -53,13 +53,13 @@ def register_view(request):
         
         user = User.objects.create_user(username=username, email=email, password=password)
         login(request, user)
-        return redirect('dashboard')
+        return redirect('index')
     
     return render(request, 'auth_register_basic.html')
 
 def login_view(request):
     if request.user.is_authenticated:
-        return redirect('dashboard')
+        return redirect('index')
         
     if request.method == 'POST':
         username = request.POST.get('email-username')
@@ -68,7 +68,7 @@ def login_view(request):
         if user is not None:
             if user.is_active:
                 login(request, user)
-                return redirect('dashboard')
+                return redirect('index')
             else:
                 messages.error(request, 'Your account is disabled.')
         else:

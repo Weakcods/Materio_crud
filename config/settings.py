@@ -187,7 +187,7 @@ THEME_VARIABLES = THEME_VARIABLES
 # Authentication Settings
 # ------------------------------------------------------------------------------
 LOGIN_URL = 'login'
-LOGIN_REDIRECT_URL = 'dashboard'
+LOGIN_REDIRECT_URL = 'index'
 LOGOUT_REDIRECT_URL = 'login'
 
 # Session Settings
