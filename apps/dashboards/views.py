@@ -5,7 +5,7 @@ from django.contrib.auth.decorators import login_required
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.utils import timezone
 from django.db.models import Count, Sum, Avg
-from pos.models import Order, Table, Product, OrderItem
+from pos.models import Order, Table, Product, OrderItem, Category
 from datetime import timedelta
 
 
@@ -114,4 +114,36 @@ class RestaurantDashboardView(LoginRequiredMixin, TemplateView):
 
         context['recent_activities'] = recent_activities
 
+        return context
+
+class ProductsDashboardView(LoginRequiredMixin, TemplateView):
+    template_name = 'dashboard_products.html'
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context['products'] = Product.objects.select_related('category').all()
+        return context
+
+class CategoriesDashboardView(LoginRequiredMixin, TemplateView):
+    template_name = 'dashboard_categories.html'
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context['categories'] = Category.objects.prefetch_related('products').all()
+        return context
+
+class OrdersDashboardView(LoginRequiredMixin, TemplateView):
+    template_name = 'dashboard_orders.html'
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context['orders'] = Order.objects.select_related('customer', 'table').prefetch_related('items').all()
+        return context
+
+class TablesDashboardView(LoginRequiredMixin, TemplateView):
+    template_name = 'dashboard_tables.html'
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context['tables'] = Table.objects.all()
         return context
