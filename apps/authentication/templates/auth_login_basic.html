@@ -32,11 +32,12 @@
           <p class="mb-5">Please sign-in to your account</p>
 
           {% if messages %}
-          <div class="alert alert-danger">
-              {% for message in messages %}
-                  {{ message }}
-              {% endfor %}
-          </div>
+            {% for message in messages %}
+              <div class="alert alert-{% if message.tags == 'error' %}danger{% else %}{{ message.tags }}{% endif %} alert-dismissible mb-4" role="alert">
+                {{ message }}
+                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+              </div>
+            {% endfor %}
           {% endif %}
 
           <form id="formAuthentication" class="mb-5" method="POST">

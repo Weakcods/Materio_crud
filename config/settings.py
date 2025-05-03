@@ -196,6 +196,10 @@ LOGOUT_REDIRECT_URL = 'login'
 SESSION_COOKIE_AGE = 60 * 60 * 24 * 30  # 30 days
 SESSION_COOKIE_SECURE = not DEBUG
 CSRF_COOKIE_SECURE = not DEBUG
+SESSION_EXPIRE_AT_BROWSER_CLOSE = True  # Session expires when browser closes
+SESSION_SAVE_EVERY_REQUEST = True  # Update session on every request
+CSRF_COOKIE_HTTPONLY = True  # Prevent JavaScript access to CSRF token
+SESSION_COOKIE_HTTPONLY = True  # Prevent JavaScript access to session cookie
 
 # Authentication Backends
 AUTHENTICATION_BACKENDS = [

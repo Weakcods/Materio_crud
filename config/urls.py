@@ -30,7 +30,7 @@ urlpatterns = [
     # Authentication URLs first
     path('', redirect_to_login, name='index'),  # Redirect root to login
     path('login/', views.login_view, name='login'),
-    path('logout/', auth_views.LogoutView.as_view(next_page='login'), name='logout'),
+    path('logout/', views.custom_logout, name='logout'),
     path('register/', views.register_view, name='register'),
     path('forgot-password/', auth_views.LoginView.as_view(
         template_name='auth_forgot_password_basic.html'

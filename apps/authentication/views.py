@@ -2,7 +2,7 @@ from django.views.generic import TemplateView
 from web_project import TemplateLayout
 from web_project.template_helpers.theme import TemplateHelper
 from django.shortcuts import render, redirect
-from django.contrib.auth import login, authenticate
+from django.contrib.auth import login, authenticate, logout
 from django.contrib.auth.models import User
 from django.contrib.auth.decorators import login_required
 from django.contrib import messages
@@ -75,3 +75,17 @@ def login_view(request):
             messages.error(request, 'Invalid username or password.')
     
     return render(request, 'auth_login_basic.html')
+
+def custom_logout(request):
+    # Clear any messages
+    storage = messages.get_messages(request)
+    storage.used = True
+    
+    # Log the user out
+    logout(request)
+    
+    # Add logout success message with success tag
+    messages.success(request, 'You have been successfully logged out.')
+    
+    # Redirect to login page
+    return redirect('login')
