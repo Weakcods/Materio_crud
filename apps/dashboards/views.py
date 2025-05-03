@@ -37,7 +37,7 @@ def ecommerce(request):
     return render(request, 'dashboard_ecommerce.html')
 
 
-class RestaurantDashboardView(LoginRequiredMixin, TemplateView):
+class RestaurantDashboardView(LoginRequiredMixin, DashboardsView):
     template_name = 'restaurant_dashboard.html'
 
     def get_context_data(self, **kwargs):
@@ -116,7 +116,7 @@ class RestaurantDashboardView(LoginRequiredMixin, TemplateView):
 
         return context
 
-class ProductsDashboardView(LoginRequiredMixin, TemplateView):
+class ProductsDashboardView(LoginRequiredMixin, DashboardsView):
     template_name = 'dashboard_products.html'
 
     def get_context_data(self, **kwargs):
@@ -124,7 +124,7 @@ class ProductsDashboardView(LoginRequiredMixin, TemplateView):
         context['products'] = Product.objects.select_related('category').all()
         return context
 
-class CategoriesDashboardView(LoginRequiredMixin, TemplateView):
+class CategoriesDashboardView(LoginRequiredMixin, DashboardsView):
     template_name = 'dashboard_categories.html'
 
     def get_context_data(self, **kwargs):
@@ -132,7 +132,7 @@ class CategoriesDashboardView(LoginRequiredMixin, TemplateView):
         context['categories'] = Category.objects.prefetch_related('products').all()
         return context
 
-class OrdersDashboardView(LoginRequiredMixin, TemplateView):
+class OrdersDashboardView(LoginRequiredMixin, DashboardsView):
     template_name = 'dashboard_orders.html'
 
     def get_context_data(self, **kwargs):
@@ -140,7 +140,7 @@ class OrdersDashboardView(LoginRequiredMixin, TemplateView):
         context['orders'] = Order.objects.select_related('customer', 'table').prefetch_related('items').all()
         return context
 
-class TablesDashboardView(LoginRequiredMixin, TemplateView):
+class TablesDashboardView(LoginRequiredMixin, DashboardsView):
     template_name = 'dashboard_tables.html'
 
     def get_context_data(self, **kwargs):

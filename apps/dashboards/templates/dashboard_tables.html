@@ -3,19 +3,69 @@
 {% load static %}
 {% load i18n %}
 
-{% block title %}Dashboard - Table{% endblock title %}
+{% block title %}Tables Dashboard{% endblock title %}
 
 {% block content %}
 <div class="container-xxl flex-grow-1 container-p-y">
   <div class="row">
     <div class="col-12">
       <div class="card">
+        <div class="card-header d-flex justify-content-between align-items-center">
+          <h5 class="card-title mb-0">Tables</h5>
+          <button class="btn btn-primary">Add New Table</button>
+        </div>
         <div class="card-body">
-          <h5 class="card-title">Table Dashboard</h5>
-          <p class="card-text">Table statistics and analytics will be displayed here.</p>
+          <div class="row g-4">
+            {% for table in tables %}
+            <div class="col-xl-3 col-lg-4 col-md-6">
+              <div class="card h-100 {% if table.status == 'OCCUPIED' %}border-warning{% elif table.status == 'RESERVED' %}border-info{% elif table.status == 'MAINTENANCE' %}border-danger{% else %}border-success{% endif %}">
+                <div class="card-body">
+                  <div class="d-flex justify-content-between align-items-center mb-2">
+                    <h5 class="mb-0">Table {{ table.number }}</h5>
+                    <div class="dropdown">
+                      <button class="btn text-muted p-0" data-bs-toggle="dropdown">
+                        <i class="ri-more-2-fill"></i>
+                      </button>
+                      <ul class="dropdown-menu">
+                        <li><a class="dropdown-item" href="#">Edit</a></li>
+                        <li><a class="dropdown-item" href="#">Set Available</a></li>
+                        <li><a class="dropdown-item" href="#">Set Maintenance</a></li>
+                        <li><hr class="dropdown-divider"></li>
+                        <li><a class="dropdown-item text-danger" href="#">Delete</a></li>
+                      </ul>
+                    </div>
+                  </div>
+                  <div class="d-flex align-items-center mb-3">
+                    <div class="avatar me-2">
+                      <span class="avatar-initial rounded-circle {% if table.status == 'OCCUPIED' %}bg-warning{% elif table.status == 'RESERVED' %}bg-info{% elif table.status == 'MAINTENANCE' %}bg-danger{% else %}bg-success{% endif %}">
+                        <i class="ri-restaurant-2-line"></i>
+                      </span>
+                    </div>
+                    <span class="badge bg-label-{% if table.status == 'OCCUPIED' %}warning{% elif table.status == 'RESERVED' %}info{% elif table.status == 'MAINTENANCE' %}danger{% else %}success{% endif %}">
+                      {{ table.get_status_display }}
+                    </span>
+                  </div>
+                  <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                      <p class="mb-0">Capacity</p>
+                      <h6>{{ table.capacity }} seats</h6>
+                    </div>
+                    {% if table.status == 'AVAILABLE' %}
+                    <button class="btn btn-primary btn-sm">New Order</button>
+                    {% elif table.status == 'OCCUPIED' %}
+                    <button class="btn btn-warning btn-sm">View Order</button>
+                    {% elif table.status == 'RESERVED' %}
+                    <button class="btn btn-info btn-sm">View Reservation</button>
+                    {% endif %}
+                  </div>
+                </div>
+              </div>
+            </div>
+            {% endfor %}
+          </div>
         </div>
       </div>
     </div>
   </div>
 </div>
-{% endblock %}
+{% endblock content %}
