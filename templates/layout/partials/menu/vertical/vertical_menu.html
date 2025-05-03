@@ -75,6 +75,11 @@
             <div class="menu-text text-truncate" data-i18n="Deposit">Deposit</div>
           </a>
         </li>
+        <li class="menu-item {% if '/sales/' in request.path %}active{% endif %}">
+          <a href="{% url 'dashboard-sales' %}" class="menu-link d-flex align-items-center">
+            <div class="menu-text text-truncate" data-i18n="Sales">Sales</div>
+          </a>
+        </li>
       </ul>
     </li>
 

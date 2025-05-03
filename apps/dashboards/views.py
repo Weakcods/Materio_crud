@@ -147,3 +147,54 @@ class TablesDashboardView(LoginRequiredMixin, DashboardsView):
         context = super().get_context_data(**kwargs)
         context['tables'] = Table.objects.all()
         return context
+
+class SalesDashboardView(LoginRequiredMixin, DashboardsView):
+    template_name = "dashboard_sales.html"
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        
+        # Get date range
+        end_date = timezone.now()
+        start_date = end_date - timedelta(days=30)
+        
+        # Get sales data
+        sales_data = Order.objects.filter(
+            created_at__range=[start_date, end_date],
+            order_status='COMPLETED'
+        ).aggregate(
+            total_sales=Sum('total_amount'),
+            total_orders=Count('id'),
+            avg_order_value=Avg('total_amount')
+        )
+        
+        # Top selling products
+        top_products = OrderItem.objects.filter(
+            order__created_at__range=[start_date, end_date],
+            order__order_status='COMPLETED'
+        ).values(
+            'product__name'
+        ).annotate(
+            total_quantity=Sum('quantity'),
+            total_revenue=Sum('total_price')
+        ).order_by('-total_quantity')[:5]
+        
+        # Sales by category
+        category_sales = OrderItem.objects.filter(
+            order__created_at__range=[start_date, end_date],
+            order__order_status='COMPLETED'
+        ).values(
+            'product__category__name'
+        ).annotate(
+            total_sales=Sum('total_price')
+        ).order_by('-total_sales')
+        
+        context.update({
+            'sales_data': sales_data,
+            'top_products': top_products,
+            'category_sales': category_sales,
+            'start_date': start_date,
+            'end_date': end_date
+        })
+        
+        return context

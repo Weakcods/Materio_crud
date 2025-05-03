@@ -1,0 +1,209 @@
+{% extends layout_path %}
+
+{% load static %}
+{% load i18n %}
+
+{% block title %}Sales Dashboard{% endblock title %}
+
+{% block vendor_css %}
+{{ block.super }}
+<link rel="stylesheet" href="{% static 'vendor/libs/apex-charts/apex-charts.css' %}" />
+{% endblock vendor_css %}
+
+{% block content %}
+<div class="container-xxl flex-grow-1 container-p-y">
+  <div class="row">
+    <!-- Sales Overview -->
+    <div class="col-lg-8 mb-4">
+      <div class="card">
+        <div class="card-header">
+          <div class="d-flex justify-content-between">
+            <h5 class="card-title mb-0">Sales Overview</h5>
+            <small class="text-muted">{{ start_date|date:"M d, Y" }} - {{ end_date|date:"M d, Y" }}</small>
+          </div>
+        </div>
+        <div class="card-body">
+          <div class="row g-3">
+            <div class="col-md-4">
+              <div class="d-flex align-items-center">
+                <div class="avatar">
+                  <div class="avatar-initial bg-primary rounded">
+                    <i class="ri-money-dollar-circle-line ri-24px"></i>
+                  </div>
+                </div>
+                <div class="ms-3">
+                  <div class="small mb-1">Total Sales</div>
+                  <h5 class="mb-0">${{ sales_data.total_sales|default:"0"|floatformat:2 }}</h5>
+                </div>
+              </div>
+            </div>
+            <div class="col-md-4">
+              <div class="d-flex align-items-center">
+                <div class="avatar">
+                  <div class="avatar-initial bg-success rounded">
+                    <i class="ri-file-list-3-line ri-24px"></i>
+                  </div>
+                </div>
+                <div class="ms-3">
+                  <div class="small mb-1">Total Orders</div>
+                  <h5 class="mb-0">{{ sales_data.total_orders|default:"0" }}</h5>
+                </div>
+              </div>
+            </div>
+            <div class="col-md-4">
+              <div class="d-flex align-items-center">
+                <div class="avatar">
+                  <div class="avatar-initial bg-warning rounded">
+                    <i class="ri-shopping-cart-line ri-24px"></i>
+                  </div>
+                </div>
+                <div class="ms-3">
+                  <div class="small mb-1">Avg Order Value</div>
+                  <h5 class="mb-0">${{ sales_data.avg_order_value|default:"0"|floatformat:2 }}</h5>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div id="salesOverviewChart" class="mt-4" style="min-height: 300px;"></div>
+        </div>
+      </div>
+    </div>
+    <!-- /Sales Overview -->
+
+    <!-- Top Products -->
+    <div class="col-lg-4 mb-4">
+      <div class="card h-100">
+        <div class="card-header d-flex align-items-center justify-content-between">
+          <h5 class="card-title m-0">Top Selling Products</h5>
+        </div>
+        <div class="card-body">
+          <ul class="p-0 m-0">
+            {% for product in top_products %}
+            <li class="mb-4 pb-1 d-flex justify-content-between align-items-center">
+              <div class="d-flex align-items-center">
+                <div>
+                  <h6 class="mb-0">{{ product.product__name }}</h6>
+                  <small class="text-muted">{{ product.total_quantity }} units sold</small>
+                </div>
+              </div>
+              <div class="text-end">
+                <h6 class="mb-0">${{ product.total_revenue|floatformat:2 }}</h6>
+              </div>
+            </li>
+            {% empty %}
+            <li class="text-center py-4">
+              <p class="mb-0 text-muted">No products data available</p>
+            </li>
+            {% endfor %}
+          </ul>
+        </div>
+      </div>
+    </div>
+    <!-- /Top Products -->
+
+    <!-- Sales by Category -->
+    <div class="col-12">
+      <div class="card">
+        <div class="card-header">
+          <h5 class="card-title mb-0">Sales by Category</h5>
+        </div>
+        <div class="card-body">
+          <div class="table-responsive">
+            <table class="table table-hover">
+              <thead>
+                <tr>
+                  <th>Category</th>
+                  <th class="text-end">Sales</th>
+                  <th class="text-end">Percentage</th>
+                </tr>
+              </thead>
+              <tbody>
+                {% with total_category_sales=category_sales|dictsort:"total_sales"|reverse %}
+                {% for category in total_category_sales %}
+                <tr>
+                  <td>{{ category.product__category__name|default:"Uncategorized" }}</td>
+                  <td class="text-end">${{ category.total_sales|floatformat:2 }}</td>
+                  <td class="text-end">
+                    {% with percentage=category.total_sales|div:sales_data.total_sales|mul:100 %}
+                    <div class="d-flex justify-content-end align-items-center gap-3">
+                      <span>{{ percentage|floatformat:1 }}%</span>
+                      <div class="progress w-25" style="height: 5px">
+                        <div class="progress-bar bg-primary" style="width: {{ percentage }}%" role="progressbar" aria-valuenow="{{ percentage }}" aria-valuemin="0" aria-valuemax="100"></div>
+                      </div>
+                    </div>
+                    {% endwith %}
+                  </td>
+                </tr>
+                {% empty %}
+                <tr>
+                  <td colspan="3" class="text-center">No category data available</td>
+                </tr>
+                {% endfor %}
+                {% endwith %}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+    <!-- /Sales by Category -->
+  </div>
+</div>
+{% endblock content %}
+
+{% block vendor_js %}
+{{ block.super }}
+<script src="{% static 'vendor/libs/apex-charts/apexcharts.js' %}"></script>
+{% endblock vendor_js %}
+
+{% block page_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+  // Sales Overview Chart
+  const salesOverviewChartEl = document.querySelector('#salesOverviewChart');
+  if (salesOverviewChartEl) {
+    const salesOverviewChart = new ApexCharts(salesOverviewChartEl, {
+      chart: {
+        height: 300,
+        type: 'line',
+        toolbar: { show: false }
+      },
+      series: [{
+        name: 'Sales',
+        data: [280, 200, 220, 180, 270, 250, 70, 90, 200, 150, 160, 100, 150, 100, 50]
+      }],
+      stroke: {
+        curve: 'smooth'
+      },
+      grid: {
+        borderColor: '#f1f1f1',
+        padding: {
+          top: -20,
+          bottom: -8
+        }
+      },
+      xaxis: {
+        categories: ['', '', '', '', '', '', '', '', '', '', '', '', '', '', ''],
+        labels: {
+          show: false
+        },
+        axisBorder: {
+          show: false
+        },
+        axisTicks: {
+          show: false
+        }
+      },
+      yaxis: {
+        labels: {
+          formatter: function(val) {
+            return '$' + val;
+          }
+        }
+      }
+    });
+    salesOverviewChart.render();
+  }
+});
+</script>
+{% endblock page_js %}

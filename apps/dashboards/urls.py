@@ -4,7 +4,8 @@ from .views import (
     ProductsDashboardView,
     CategoriesDashboardView,
     OrdersDashboardView,
-    TablesDashboardView
+    TablesDashboardView,
+    SalesDashboardView
 )
 
 urlpatterns = [
@@ -19,4 +20,5 @@ urlpatterns = [
     path("pos/categories/", CategoriesDashboardView.as_view(), name="dashboard-categories"),
     path("pos/orders/", OrdersDashboardView.as_view(), name="dashboard-orders"),
     path("pos/tables/", TablesDashboardView.as_view(), name="dashboard-tables"),
+    path("sales/", SalesDashboardView.as_view(), name="dashboard-sales"),
 ]
