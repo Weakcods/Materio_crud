@@ -57,8 +57,6 @@ class Menu {
       // Find top parent element
       if (e.target.closest('ul') && e.target.closest('ul').classList.contains('menu-inner')) {
         const menuItem = Menu._findParent(e.target, 'menu-item', false)
-
-        // eslint-disable-next-line prefer-destructuring
         if (menuItem) this._topParent = menuItem.childNodes[0]
       }
 
@@ -68,9 +66,15 @@ class Menu {
 
       if (toggleLink) {
         e.preventDefault()
-
-        if (toggleLink.getAttribute('data-hover') !== 'true') {
-          this.toggle(toggleLink)
+        
+        // Only allow collapse/uncollapse for dashboard menu
+        if (toggleLink.querySelector('[data-i18n="Dashboards"]')) {
+          const item = Menu._getItem(toggleLink, true)
+          if (item.classList.contains('open')) {
+            item.classList.remove('open')
+          } else {
+            item.classList.add('open')
+          }
         }
       }
     }
@@ -267,10 +271,11 @@ class Menu {
 
   toggle(el, closeChildren = this._closeChildren) {
     const item = Menu._getItem(el, true)
-    // const toggleLink = Menu._getLink(el, true)
-
-    if (item.classList.contains('open')) this.close(item, closeChildren)
-    else this.open(item, closeChildren)
+    
+    // Only open items, never close them
+    if (!item.classList.contains('open')) {
+      this.open(item, closeChildren)
+    }
   }
 
   static _getItem(el, toggle) {

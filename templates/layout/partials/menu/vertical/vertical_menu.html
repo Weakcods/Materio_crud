@@ -15,78 +15,80 @@
   </div>
   {% endif %}
 
-
   <div class="menu-inner-shadow"></div>
 
   <ul class="menu-inner py-1">
-
-    <li class="menu-item {% if 'index' == request.resolver_match.url_name or '/dashbord/' in request.path %}active open{% endif %}">
-      <a href="javascript:void(0);" class="menu-link menu-toggle">
-        <i class="menu-icon tf-icons ri-home-smile-line"></i>
-        <div class="text-truncate" data-i18n="Dashboards">Dashboards</div>
+    <!-- Dashboards -->
+    <li class="menu-item {% if 'index' == request.resolver_match.url_name or '/dashboard/' in request.path %}active{% endif %}">
+      <a href="javascript:void(0);" class="menu-link menu-toggle d-flex align-items-center">
+        <div class="d-flex align-items-center">
+          <i class="menu-icon tf-icons ri-home-smile-line"></i>
+          <div class="menu-text text-truncate ms-2" data-i18n="Dashboards">Dashboards</div>
+        </div>
         <span class="badge bg-danger rounded-pill ms-auto">5</span>
       </a>
       <ul class="menu-sub">
         <li class="menu-item {% if '/transactions/' in request.path %}active{% endif %}">
-          <a href="{% url 'dashboard-transactions' %}" class="menu-link" title="http://127.0.0.1:8000/dashboard/transactions/">
-            <div class="text-truncate" data-i18n="Transactions">Transactions</div>
+          <a href="{% url 'dashboard-transactions' %}" class="menu-link d-flex align-items-center">
+            <div class="menu-text text-truncate" data-i18n="Transactions">Transactions</div>
           </a>
         </li>
         <li class="menu-item {% if 'index' == request.resolver_match.url_name %}active{% endif %}">
-          <a href="{% url 'index' %}" class="menu-link" title="http://127.0.0.1:8000/">
-            <div class="text-truncate" data-i18n="Analytics">Analytics</div>
+          <a href="{% url 'index' %}" class="menu-link d-flex align-items-center">
+            <div class="menu-text text-truncate" data-i18n="Analytics">Analytics</div>
           </a>
         </li>
         <!-- POS Dashboard Items -->
         <li class="menu-item {% if '/pos/products/' in request.path %}active{% endif %}">
-          <a href="{% url 'dashboard-products' %}" class="menu-link">
-            <div class="text-truncate" data-i18n="Products">Products</div>
+          <a href="{% url 'dashboard-products' %}" class="menu-link d-flex align-items-center">
+            <div class="menu-text text-truncate" data-i18n="Products">Products</div>
           </a>
         </li>
         <li class="menu-item {% if '/pos/categories/' in request.path %}active{% endif %}">
-          <a href="{% url 'dashboard-categories' %}" class="menu-link">
-            <div class="text-truncate" data-i18n="Categories">Categories</div>
+          <a href="{% url 'dashboard-categories' %}" class="menu-link d-flex align-items-center">
+            <div class="menu-text text-truncate" data-i18n="Categories">Categories</div>
           </a>
         </li>
         <li class="menu-item {% if '/pos/orders/' in request.path %}active{% endif %}">
-          <a href="{% url 'dashboard-orders' %}" class="menu-link">
-            <div class="text-truncate" data-i18n="Orders">Orders</div>
+          <a href="{% url 'dashboard-orders' %}" class="menu-link d-flex align-items-center">
+            <div class="menu-text text-truncate" data-i18n="Orders">Orders</div>
           </a>
         </li>
         <li class="menu-item {% if '/pos/tables/' in request.path %}active{% endif %}">
-          <a href="{% url 'dashboard-tables' %}" class="menu-link">
-            <div class="text-truncate" data-i18n="Tables">Tables</div>
+          <a href="{% url 'dashboard-tables' %}" class="menu-link d-flex align-items-center">
+            <div class="menu-text text-truncate" data-i18n="Tables">Tables</div>
           </a>
         </li>
         <!-- End POS Dashboard Items -->
         <li class="menu-item {% if '/total-earning/' in request.path %}active{% endif %}">
-          <a href="{% url 'dashboard-total-earning' %}" class="menu-link" title="http://127.0.0.1:8000/dashboard/total-earning/">
-            <div class="text-truncate" data-i18n="Total Earning">Total Earning</div>
+          <a href="{% url 'dashboard-total-earning' %}" class="menu-link d-flex align-items-center">
+            <div class="menu-text text-truncate" data-i18n="Total Earning">Total Earning</div>
           </a>
         </li>
         <li class="menu-item {% if '/logistics/' in request.path %}active{% endif %}">
-          <a href="{% url 'dashboard-logistics' %}" class="menu-link" title="http://127.0.0.1:8000/dashboard/logistics/">
-            <div class="text-truncate" data-i18n="Logistics">Logistics</div>
+          <a href="{% url 'dashboard-logistics' %}" class="menu-link d-flex align-items-center">
+            <div class="menu-text text-truncate" data-i18n="Logistics">Logistics</div>
           </a>
         </li>
         <li class="menu-item {% if '/deposit/' in request.path %}active{% endif %}">
-          <a href="{% url 'dashboard-deposit' %}" class="menu-link" title="http://127.0.0.1:8000/dashboard/deposit/">
-            <div class="text-truncate" data-i18n="Deposit">Deposit</div>
+          <a href="{% url 'dashboard-deposit' %}" class="menu-link d-flex align-items-center">
+            <div class="menu-text text-truncate" data-i18n="Deposit">Deposit</div>
           </a>
         </li>
       </ul>
     </li>
-    <!-- Layouts -->
 
     <li class="menu-header fw-medium mt-7">
       <span class="menu-header-text">Apps &amp; Pages</span>
     </li>
 
-    <!-- Account -->
-    <li class="menu-item {% if '/account_settings/' in request.path %}active open{% endif %}">
-      <a href="javascript:void(0);" class="menu-link menu-toggle">
-        <i class="menu-icon tf-icons ri-user-line"></i>
-        <div class="text-truncate" data-i18n="Account Settings">Account Settings</div>
+    <!-- Account Settings -->
+    <li class="menu-item {% if '/account_settings/' in request.path %}active{% endif %}">
+      <a href="#" class="menu-link d-flex align-items-center">
+        <div class="d-flex align-items-center">
+          <i class="menu-icon tf-icons ri-user-line"></i>
+          <div class="menu-text text-truncate ms-2" data-i18n="Account Settings">Account Settings</div>
+        </div>
       </a>
       <ul class="menu-sub">
         <li class="menu-item {% if '/account/' in request.path %}active{% endif %}">
@@ -106,11 +108,14 @@
         </li>
       </ul>
     </li>
-    <!-- Auth -->
-    <li class="menu-item {% if '/auth/' in request.path %}active open{% endif %}">
-      <a href="javascript:void(0);" class="menu-link menu-toggle">
-        <i class="menu-icon tf-icons ri-shield-keyhole-line"></i>
-        <div class="text-truncate" data-i18n="Authentications">Authentications</div>
+
+    <!-- Authentication -->
+    <li class="menu-item {% if '/auth/' in request.path %}active{% endif %}">
+      <a href="#" class="menu-link d-flex align-items-center">
+        <div class="d-flex align-items-center">
+          <i class="menu-icon tf-icons ri-shield-keyhole-line"></i>
+          <div class="menu-text text-truncate ms-2" data-i18n="Authentications">Authentications</div>
+        </div>
       </a>
       <ul class="menu-sub">
         <li class="menu-item {% if '/login/' in request.path %}active{% endif %}">
@@ -125,14 +130,10 @@
         </li>
         <li class="menu-item {% if '/forgot_password/' in request.path %}active{% endif %}">
           <a href="{% url 'auth-forgot-password-basic' %}" class="menu-link" target="_blank">
-            <div class="text-truncate" data-i18n="Frogot Password">Frogot Password</div>
+            <div class="text-truncate" data-i18n="Forgot Password">Forgot Password</div>
           </a>
         </li>
       </ul>
     </li>
-
-
   </ul>
-
-
 </aside>
