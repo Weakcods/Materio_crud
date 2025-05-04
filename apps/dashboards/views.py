@@ -22,34 +22,81 @@ class DashboardsView(TemplateView):
         # A function to init the global layout. It is defined in web_project/__init__.py file
         context = TemplateLayout.init(self, super().get_context_data(**kwargs))
         
-        # Add transaction data when viewing transactions template
+        # Add payment data when viewing transactions template
         if self.template_name == 'dashboard_transactions.html':
-            # Sample transaction data - replace with actual data from your models
-            context['transactions'] = [
-                {
-                    'id': '001',
-                    'date': timezone.now(),
-                    'description': 'Monthly subscription',
-                    'category': 'Subscription',
-                    'amount': 29.99,
-                    'status': 'completed'
-                },
-                {
-                    'id': '002',
-                    'date': timezone.now() - timedelta(days=1),
-                    'description': 'Software license',
-                    'category': 'License',
-                    'amount': -299.00,
-                    'status': 'pending'
-                },
-                # Add more sample transactions as needed
-            ]
+            from pos.models import Payment
+            context['payments'] = Payment.objects.select_related('order').all().order_by('-payment_date')
         
         return context
 
 @login_required
 def analytics(request):
-    return render(request, 'dashboard_analytics.html')
+    from pos.models import Order, Customer, Product, Payment
+    from django.utils import timezone
+    from django.db.models import Sum, Count
+    from datetime import timedelta
+    
+    # Get date ranges
+    today = timezone.now()
+    start_month = today.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+    last_month_end = start_month - timedelta(days=1)
+    last_month_start = last_month_end.replace(day=1)
+    
+    # Calculate current month metrics
+    current_month_sales = Order.objects.filter(
+        created_at__gte=start_month,
+        payment_status='PAID'
+    ).aggregate(
+        total_amount=Sum('total_amount'),
+        orders_count=Count('id')
+    )
+    
+    # Calculate last month metrics for comparison
+    last_month_sales = Order.objects.filter(
+        created_at__range=[last_month_start, last_month_end],
+        payment_status='PAID'
+    ).aggregate(
+        total_amount=Sum('total_amount'),
+        orders_count=Count('id')
+    )
+    
+    # Calculate growth percentages
+    current_amount = current_month_sales['total_amount'] or 0
+    last_amount = last_month_sales['total_amount'] or 1  # Avoid division by zero
+    revenue_growth = ((current_amount - last_amount) / last_amount) * 100
+    
+    # Get current metrics
+    context = {
+        'total_sales': current_month_sales['orders_count'] or 0,
+        'total_customers': Customer.objects.count(),
+        'total_products': Product.objects.filter(is_available=True).count(),
+        'total_revenue': current_amount,
+        'revenue_growth': revenue_growth,
+        
+        # Weekly transactions for chart
+        'weekly_transactions': Order.objects.filter(
+            created_at__gte=today - timedelta(days=7)
+        ).values('created_at__date').annotate(
+            daily_sales=Sum('total_amount')
+        ).order_by('created_at__date'),
+        
+        # Top selling products
+        'top_products': OrderItem.objects.filter(
+            order__created_at__gte=start_month
+        ).values(
+            'product__name'
+        ).annotate(
+            total_quantity=Sum('quantity'),
+            total_revenue=Sum('subtotal')
+        ).order_by('-total_quantity')[:5],
+        
+        # Recent transactions
+        'recent_transactions': Payment.objects.select_related(
+            'order'
+        ).order_by('-payment_date')[:10]
+    }
+    
+    return render(request, 'dashboard_analytics.html', context)
 
 @login_required
 def crm(request):

@@ -17,16 +17,22 @@
     <div class="col-12">
       <div class="card">
         <div class="card-header d-flex justify-content-between align-items-center">
-          <h5 class="card-title mb-0">Transactions History</h5>
-          <div class="dropdown">
-            <button class="btn btn-secondary dropdown-toggle" type="button" id="transactionFilter" data-bs-toggle="dropdown" aria-expanded="false">
-              Filter
+          <h5 class="card-title mb-0">Payment Transactions</h5>
+          <div class="d-flex gap-2">
+            <button class="btn btn-primary">
+              <i class="ri-download-2-line me-1"></i> Export
             </button>
-            <ul class="dropdown-menu" aria-labelledby="transactionFilter">
-              <li><a class="dropdown-item" href="#">All</a></li>
-              <li><a class="dropdown-item" href="#">Income</a></li>
-              <li><a class="dropdown-item" href="#">Expense</a></li>
-            </ul>
+            <div class="dropdown">
+              <button class="btn btn-secondary dropdown-toggle" type="button" id="paymentFilter" data-bs-toggle="dropdown" aria-expanded="false">
+                Filter by Method
+              </button>
+              <ul class="dropdown-menu" aria-labelledby="paymentFilter">
+                <li><a class="dropdown-item" href="#">All Methods</a></li>
+                <li><a class="dropdown-item" href="#">Cash</a></li>
+                <li><a class="dropdown-item" href="#">Card</a></li>
+                <li><a class="dropdown-item" href="#">Bank Transfer</a></li>
+              </ul>
+            </div>
           </div>
         </div>
         <div class="card-body">
@@ -34,30 +40,43 @@
             <table class="table table-hover">
               <thead>
                 <tr>
-                  <th>ID</th>
+                  <th>Transaction ID</th>
+                  <th>Order #</th>
                   <th>Date</th>
-                  <th>Description</th>
-                  <th>Category</th>
                   <th>Amount</th>
+                  <th>Payment Method</th>
                   <th>Status</th>
                   <th>Actions</th>
                 </tr>
               </thead>
               <tbody>
-                {% for transaction in transactions %}
+                {% for payment in payments %}
                 <tr>
-                  <td>#{{ transaction.id }}</td>
-                  <td>{{ transaction.date|date:"M d, Y" }}</td>
-                  <td>{{ transaction.description }}</td>
-                  <td>{{ transaction.category }}</td>
                   <td>
-                    <span class="{% if transaction.amount > 0 %}text-success{% else %}text-danger{% endif %}">
-                      ${{ transaction.amount|floatformat:2 }}
-                    </span>
+                    {% if payment.transaction_id %}
+                      {{ payment.transaction_id }}
+                    {% else %}
+                      <span class="text-muted">N/A</span>
+                    {% endif %}
+                  </td>
+                  <td>#{{ payment.order.id }}</td>
+                  <td>{{ payment.payment_date|date:"M d, Y H:i" }}</td>
+                  <td>${{ payment.amount|floatformat:2 }}</td>
+                  <td>
+                    <div class="d-flex align-items-center">
+                      {% if payment.payment_method == 'CASH' %}
+                        <i class="ri-money-dollar-circle-line text-success me-2"></i>
+                      {% elif payment.payment_method == 'CARD' %}
+                        <i class="ri-bank-card-line text-primary me-2"></i>
+                      {% else %}
+                        <i class="ri-bank-line text-info me-2"></i>
+                      {% endif %}
+                      {{ payment.get_payment_method_display }}
+                    </div>
                   </td>
                   <td>
-                    <span class="badge bg-label-{% if transaction.status == 'completed' %}success{% elif transaction.status == 'pending' %}warning{% else %}danger{% endif %}">
-                      {{ transaction.status|title }}
+                    <span class="badge bg-label-{% if payment.order.payment_status == 'PAID' %}success{% elif payment.order.payment_status == 'FAILED' %}danger{% else %}warning{% endif %}">
+                      {{ payment.order.get_payment_status_display }}
                     </span>
                   </td>
                   <td>
@@ -70,15 +89,20 @@
                           <i class="ri-eye-line me-2"></i>View Details
                         </a>
                         <a class="dropdown-item" href="javascript:void(0);">
-                          <i class="ri-download-2-line me-2"></i>Download
+                          <i class="ri-printer-line me-2"></i>Print Receipt
                         </a>
+                        {% if payment.order.payment_status == 'PENDING' %}
+                        <a class="dropdown-item" href="javascript:void(0);">
+                          <i class="ri-close-circle-line me-2"></i>Cancel
+                        </a>
+                        {% endif %}
                       </div>
                     </div>
                   </td>
                 </tr>
                 {% empty %}
                 <tr>
-                  <td colspan="7" class="text-center">No transactions found</td>
+                  <td colspan="7" class="text-center">No payment transactions found</td>
                 </tr>
                 {% endfor %}
               </tbody>
