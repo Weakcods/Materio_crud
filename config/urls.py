@@ -22,6 +22,9 @@ from django.contrib.auth.decorators import login_required
 from apps.authentication import views
 from web_project.views import SystemView
 from django.shortcuts import redirect
+from django.conf import settings
+from django.conf.urls.static import static
+from apps.dashboards.views import OrderDetailView, OrderPaymentView, OrderReceiptView
 
 def redirect_to_login(request):
     return redirect('login')
@@ -49,7 +52,14 @@ urlpatterns = [
     path("", include("apps.form_layouts.urls")),
     path("", include("apps.tables.urls")),
     path("", include("pos.urls")),  # Include POS URLs
-]
+
+    # API endpoints
+    path('api/orders/<int:order_id>/', include([
+        path('', OrderDetailView.as_view(), name='api-order-detail'),
+        path('process_payment/', OrderPaymentView.as_view(), name='api-order-payment'),
+        path('print_receipt/', OrderReceiptView.as_view(), name='api-order-receipt'),
+    ])),
+] + static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
 
 handler404 = SystemView.as_view(template_name="pages_misc_error.html", status=404)
 handler400 = SystemView.as_view(template_name="pages_misc_error.html", status=400)

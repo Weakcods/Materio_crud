@@ -1,0 +1,374 @@
+{% extends layout_path %}
+
+{% load static %}
+{% load i18n %}
+
+{% block title %}Edit Order{% endblock title %}
+
+{% block vendor_css %}
+{{ block.super }}
+<link rel="stylesheet" href="{% static 'vendor/libs/select2/select2.css' %}" />
+{% endblock vendor_css %}
+
+{% block content %}
+<!-- Toast container for notifications -->
+<div class="bs-toast toast toast-placement-ex m-2" role="alert" aria-live="assertive" aria-atomic="true" data-bs-delay="2000">
+  <div class="toast-header">
+    <i class="ri-checkbox-circle-fill text-success me-2"></i>
+    <div class="me-auto fw-medium">Success</div>
+    <small>Just now</small>
+    <button type="button" class="btn-close" data-bs-dismiss="toast" aria-label="Close"></button>
+  </div>
+  <div class="toast-body">
+    Order updated successfully!
+  </div>
+</div>
+
+<div class="container-xxl flex-grow-1 container-p-y">
+  <div class="row">
+    <!-- Order Details Card -->
+    <div class="col-md-8">
+      <div class="card">
+        <div class="card-header d-flex justify-content-between align-items-center">
+          <h5 class="card-title mb-0">Edit Order #{{ order.id }}</h5>
+          <a href="{% url 'dashboard-orders' %}" class="btn btn-secondary">
+            <i class="ri-arrow-left-line me-2"></i>Back to Orders
+          </a>
+        </div>
+        <div class="card-body">
+          <form method="POST" id="orderForm">
+            {% csrf_token %}
+            <div class="row g-4">
+              <!-- Order Type -->
+              <div class="col-md-6">
+                <label class="form-label">Order Type</label>
+                <select name="order_type" class="form-select" required>
+                  <option value="">Select Order Type</option>
+                  <option value="DINE_IN" {% if order.order_type == 'DINE_IN' %}selected{% endif %}>Dine In</option>
+                  <option value="TAKEAWAY" {% if order.order_type == 'TAKEAWAY' %}selected{% endif %}>Takeaway</option>
+                  <option value="DELIVERY" {% if order.order_type == 'DELIVERY' %}selected{% endif %}>Delivery</option>
+                </select>
+              </div>
+
+              <!-- Table Selection -->
+              <div class="col-md-6" id="tableSection" {% if order.order_type != 'DINE_IN' %}style="display: none;"{% endif %}>
+                <label class="form-label">Table</label>
+                <select name="table" class="form-select" {% if order.order_type == 'DINE_IN' %}required{% endif %}>
+                  <option value="">Select Table</option>
+                  {% for table in tables %}
+                    {% if table.status == 'AVAILABLE' or table.id == order.table.id %}
+                    <option value="{{ table.id }}" {% if order.table.id == table.id %}selected{% endif %}>
+                      {{ table.number }} ({{ table.capacity }} seats)
+                    </option>
+                    {% endif %}
+                  {% endfor %}
+                </select>
+              </div>
+
+              <!-- Customer Information -->
+              <div class="col-md-12">
+                <label class="form-label">Customer</label>
+                <select name="customer" class="select2 form-select" data-allow-clear="true">
+                  <option value="">Walk-in Customer</option>
+                  {% for customer in customers %}
+                  <option value="{{ customer.id }}" {% if order.customer.id == customer.id %}selected{% endif %}>
+                    {{ customer.name }}
+                  </option>
+                  {% endfor %}
+                </select>
+              </div>
+
+              <!-- Special Instructions -->
+              <div class="col-12">
+                <label class="form-label">Special Instructions</label>
+                <textarea name="special_instructions" class="form-control" rows="2">{{ order.special_instructions }}</textarea>
+              </div>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
+
+    <!-- Order Summary Card -->
+    <div class="col-md-4">
+      <div class="card">
+        <div class="card-header">
+          <h5 class="card-title mb-0">Order Summary</h5>
+        </div>
+        <div class="card-body">
+          <div class="d-flex justify-content-between mb-3">
+            <h6 class="mb-0">Total Amount:</h6>
+            <h5 class="mb-0">$<span id="totalAmount">{{ order.total_amount }}</span></h5>
+          </div>
+          <button type="submit" form="orderForm" class="btn btn-primary w-100">Update Order</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Products Section -->
+    <div class="col-12">
+      <div class="card">
+        <div class="card-header d-flex justify-content-between align-items-center">
+          <h5 class="card-title mb-0">Order Items</h5>
+          <button type="button" class="btn btn-primary" id="addItem">
+            <i class="ri-add-line me-1"></i>Add Item
+          </button>
+        </div>
+        <div class="card-body">
+          <div id="orderItems">
+            {% for item in order.items.all %}
+            <div class="order-item card mb-3">
+              <div class="card-body">
+                <div class="row g-3">
+                  <div class="col-md-5">
+                    <label class="form-label">Product</label>
+                    <select name="products[]" class="select2 form-select product-select" required>
+                      <option value="">Select Product</option>
+                      {% for product in products %}
+                      {% if product.is_available and product.stock > 0 or product.id == item.product.id %}
+                      <option value="{{ product.id }}" 
+                              data-info='{{ products_json|safe }}'
+                              data-index="{{ forloop.counter0 }}"
+                              {% if product.id == item.product.id %}selected{% endif %}>
+                        {{ product.name }} - ${{ product.price }}
+                      </option>
+                      {% endif %}
+                      {% endfor %}
+                    </select>
+                  </div>
+                  <div class="col-md-2">
+                    <label class="form-label">Quantity</label>
+                    <input type="number" name="quantities[]" class="form-control quantity-input" 
+                           min="1" value="{{ item.quantity }}" required>
+                  </div>
+                  <div class="col-md-4">
+                    <label class="form-label">Subtotal</label>
+                    <div class="input-group">
+                      <span class="input-group-text">$</span>
+                      <input type="text" class="form-control item-total" value="{{ item.subtotal }}" readonly>
+                    </div>
+                  </div>
+                  <div class="col-md-1 d-flex align-items-end">
+                    <button type="button" class="btn btn-icon btn-outline-danger remove-item">
+                      <i class="ri-delete-bin-line"></i>
+                    </button>
+                  </div>
+                  <!-- Product Options Section -->
+                  <div class="col-12">
+                    <div class="product-options mt-2">
+                      {% if item.product.options.all %}
+                      <div class="card bg-light">
+                        <div class="card-body">
+                          <h6 class="mb-3">Product Options</h6>
+                          {% for option in item.product.options.all %}
+                          <div class="mb-3">
+                            <label class="form-label">{{ option.name }}</label>
+                            <select name="option_{{ option.name|lower }}" class="form-select option-select" 
+                                    {% if option.is_required %}required{% endif %}>
+                              <option value="">Select {{ option.name }}</option>
+                              {% for choice in option.choices.all %}
+                              {% if choice.is_available %}
+                              <option value="{{ choice.id }}" 
+                                      data-price="{{ choice.additional_price }}"
+                                      {% if choice in item.selected_options.all %}selected{% endif %}>
+                                {{ choice.name }} 
+                                {% if choice.additional_price > 0 %}(+${{ choice.additional_price }}){% endif %}
+                              </option>
+                              {% endif %}
+                              {% endfor %}
+                            </select>
+                          </div>
+                          {% endfor %}
+                        </div>
+                      </div>
+                      {% endif %}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+            {% endfor %}
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock content %}
+
+{% block vendor_js %}
+{{ block.super }}
+<script src="{% static 'vendor/libs/select2/select2.js' %}"></script>
+{% endblock vendor_js %}
+
+{% block page_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+  // Initialize Select2
+  $('.select2').select2();
+
+  // Initialize toast
+  const toast = document.querySelector('.bs-toast');
+  const bsToast = new bootstrap.Toast(toast);
+
+  // Handle order type change
+  $('select[name="order_type"]').change(function() {
+    if (this.value === 'DINE_IN') {
+      $('#tableSection').show();
+      $('select[name="table"]').prop('required', true);
+    } else {
+      $('#tableSection').hide();
+      $('select[name="table"]').prop('required', false);
+    }
+  });
+
+  // Handle adding items
+  $('#addItem').click(function() {
+    const itemTemplate = $('.order-item').first().clone();
+    itemTemplate.find('select').val('').trigger('change');
+    itemTemplate.find('input[type="number"]').val(1);
+    itemTemplate.find('.item-total').val('');
+    itemTemplate.find('.product-options').empty();
+    $('#orderItems').append(itemTemplate);
+    itemTemplate.find('.select2').select2();
+  });
+
+  // Handle removing items
+  $(document).on('click', '.remove-item', function() {
+    if ($('.order-item').length > 1) {
+      $(this).closest('.order-item').remove();
+      calculateTotal();
+    }
+  });
+
+  // Handle product selection
+  $(document).on('change', '.product-select', function() {
+    const row = $(this).closest('.order-item');
+    const selectedOption = $(this).find('option:selected');
+    const optionsContainer = row.find('.product-options');
+    
+    // Clear previous options
+    optionsContainer.empty();
+    
+    if (selectedOption.val()) {
+      const productsData = JSON.parse(selectedOption.data('info'));
+      const productIndex = parseInt(selectedOption.data('index'));
+      const productData = productsData[productIndex];
+      
+      if (productData.options && productData.options.length > 0) {
+        const optionsHtml = productData.options.map(option => `
+          <div class="mb-3">
+            <label class="form-label">${option.name}</label>
+            <select name="option_${option.name.toLowerCase()}" class="form-select option-select" 
+                    ${option.is_required ? 'required' : ''}>
+              <option value="">Select ${option.name}</option>
+              ${option.choices.map(choice => `
+                <option value="${choice.id}" data-price="${choice.additional_price}">
+                  ${choice.name} ${choice.additional_price > 0 ? '(+$' + choice.additional_price.toFixed(2) + ')' : ''}
+                </option>
+              `).join('')}
+            </select>
+          </div>
+        `).join('');
+        
+        optionsContainer.html(`
+          <div class="card bg-light">
+            <div class="card-body">
+              <h6 class="mb-3">Product Options</h6>
+              ${optionsHtml}
+            </div>
+          </div>
+        `);
+      }
+      updateItemPrice(row, productData.price);
+    } else {
+      updateItemPrice(row, 0);
+    }
+  });
+
+  // Handle quantity changes and option selection
+  $(document).on('change', '.quantity-input, .option-select', function() {
+    const row = $(this).closest('.order-item');
+    const selectedOption = row.find('.product-select option:selected');
+    if (selectedOption.val()) {
+      const productsData = JSON.parse(selectedOption.data('info'));
+      const productIndex = parseInt(selectedOption.data('index'));
+      const productData = productsData[productIndex];
+      updateItemPrice(row, productData.price);
+    }
+  });
+
+  // Update item price including options
+  function updateItemPrice(row, basePrice) {
+    const quantity = parseInt(row.find('.quantity-input').val()) || 0;
+    
+    // Add option prices
+    let totalOptionPrice = 0;
+    row.find('.option-select option:selected').each(function() {
+      totalOptionPrice += parseFloat($(this).data('price') || 0);
+    });
+    
+    const total = (basePrice + totalOptionPrice) * quantity;
+    row.find('.item-total').val(total.toFixed(2));
+    calculateTotal();
+  }
+
+  // Calculate total amount
+  function calculateTotal() {
+    let total = 0;
+    $('.item-total').each(function() {
+      const value = parseFloat($(this).val()) || 0;
+      total += value;
+    });
+    $('#totalAmount').text(total.toFixed(2));
+  }
+
+  // Form submission
+  $('#orderForm').submit(function(e) {
+    e.preventDefault();
+    const formData = new FormData(this);
+    
+    // Add selected options to form data
+    $('.order-item').each(function(index) {
+      const productId = $(this).find('.product-select').val();
+      if (productId) {
+        $(this).find('.option-select option:selected').each(function() {
+          const optionId = $(this).val();
+          if (optionId) {
+            formData.append(`item_options[${index}][]`, optionId);
+          }
+        });
+      }
+    });
+    
+    fetch(window.location.href, {
+      method: 'POST',
+      body: formData,
+      headers: {
+        'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
+      }
+    })
+    .then(response => response.json())
+    .then(data => {
+      if (data.success) {
+        toast.querySelector('.toast-header i').classList.remove('text-danger');
+        toast.querySelector('.toast-header i').classList.add('text-success');
+        toast.querySelector('.toast-header .me-auto').textContent = 'Success';
+        toast.querySelector('.toast-body').textContent = 'Order updated successfully!';
+        bsToast.show();
+        // Redirect after toast
+        setTimeout(() => {
+          window.location.href = "{% url 'dashboard-orders' %}";
+        }, 2000);
+      } else {
+        toast.querySelector('.toast-header i').classList.remove('text-success');
+        toast.querySelector('.toast-header i').classList.add('text-danger');
+        toast.querySelector('.toast-header .me-auto').textContent = 'Error';
+        toast.querySelector('.toast-body').textContent = data.error || 'Error updating order';
+        bsToast.show();
+      }
+    });
+  });
+});
+</script>
+{% endblock page_js %}

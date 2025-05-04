@@ -6,6 +6,7 @@
 {% block title %}Orders Dashboard{% endblock title %}
 
 {% block content %}
+{% csrf_token %}
 <!-- View Order Modal -->
 <div class="modal fade" id="viewOrderModal" tabindex="-1" aria-hidden="true">
   <div class="modal-dialog modal-lg" role="document">
@@ -263,16 +264,35 @@ document.addEventListener('DOMContentLoaded', function() {
         headers: {
           'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
         }
-      }).then(response => {
-        if (response.ok) {
-          deleteOrderModal.hide();
-          toast.querySelector('.toast-body').textContent = 'Order deleted successfully';
+      })
+      .then(response => response.json())
+      .then(data => {
+        deleteOrderModal.hide();
+        if (data.success) {
+          toast.querySelector('.toast-header i').classList.remove('text-danger');
+          toast.querySelector('.toast-header i').classList.add('text-success');
+          toast.querySelector('.toast-header .me-auto').textContent = 'Success';
+          toast.querySelector('.toast-body').textContent = data.message || 'Order deleted successfully';
           bsToast.show();
           // Reload page after toast
           setTimeout(() => {
             window.location.reload();
-          }, 1000);
+          }, 2000);
+        } else {
+          toast.querySelector('.toast-header i').classList.remove('text-success');
+          toast.querySelector('.toast-header i').classList.add('text-danger');
+          toast.querySelector('.toast-header .me-auto').textContent = 'Error';
+          toast.querySelector('.toast-body').textContent = data.error || 'Error deleting order';
+          bsToast.show();
         }
+      })
+      .catch(error => {
+        deleteOrderModal.hide();
+        toast.querySelector('.toast-header i').classList.remove('text-success');
+        toast.querySelector('.toast-header i').classList.add('text-danger');
+        toast.querySelector('.toast-header .me-auto').textContent = 'Error';
+        toast.querySelector('.toast-body').textContent = 'Error deleting order';
+        bsToast.show();
       });
     }
   });

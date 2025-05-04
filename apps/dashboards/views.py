@@ -421,11 +421,36 @@ class OrderDetailView(LoginRequiredMixin, DashboardsView):
         return JsonResponse(data)
 
     def delete(self, request, order_id):
-        order = get_object_or_404(Order, id=order_id)
-        if order.order_status != 'PENDING':
-            return JsonResponse({'error': 'Can only delete pending orders'}, status=400)
-        order.delete()
-        return JsonResponse({'success': True})
+        try:
+            order = get_object_or_404(Order.objects.select_related('table').prefetch_related('items__product'), id=order_id)
+            
+            if order.order_status != 'PENDING':
+                return JsonResponse({'error': 'Can only delete pending orders'}, status=400)
+            
+            if order.payment_status == 'PAID':
+                return JsonResponse({'error': 'Cannot delete paid orders'}, status=400)
+                
+            # Begin cleanup
+            # 1. Restore product stock
+            for item in order.items.all():
+                item.product.stock += item.quantity
+                item.product.save()
+                
+            # 2. Free up table if it was a dine-in order
+            if order.table and order.order_type == 'DINE_IN':
+                table = order.table
+                table.status = 'AVAILABLE'
+                table.save()
+            
+            # 3. Delete the order (this will cascade delete items due to FK relationship)
+            order.delete()
+            
+            return JsonResponse({
+                'success': True,
+                'message': 'Order deleted successfully'
+            })
+        except Exception as e:
+            return JsonResponse({'error': str(e)}, status=500)
 
 class OrderPaymentView(LoginRequiredMixin, DashboardsView):
     def post(self, request, order_id):
@@ -469,3 +494,143 @@ class OrderReceiptView(LoginRequiredMixin, DashboardsView):
         
         # TODO: Generate PDF receipt
         return JsonResponse({'error': 'Receipt printing not implemented'}, status=501)
+
+class EditOrderView(LoginRequiredMixin, DashboardsView):
+    template_name = 'dashboard_edit_order.html'
+    
+    def get_context_data(self, **kwargs):
+        from django.core.serializers.json import DjangoJSONEncoder
+        import json
+        
+        context = super().get_context_data(**kwargs)
+        order = get_object_or_404(Order.objects.select_related('customer', 'table')
+                                 .prefetch_related('items__product', 'items__selected_options'), 
+                                 id=self.kwargs['order_id'])
+        
+        if order.order_status != 'PENDING':
+            raise Http404("Only pending orders can be edited")
+            
+        products = Product.objects.filter(is_available=True).select_related('category')
+        
+        # Prepare products data with serialized options
+        products_data = []
+        for product in products:
+            options_data = []
+            for option in product.options.all():
+                choices = option.choices.filter(is_available=True).values('id', 'name', 'additional_price')
+                if choices:
+                    options_data.append({
+                        'name': option.name,
+                        'is_required': option.is_required,
+                        'choices': list(choices)
+                    })
+            
+            products_data.append({
+                'id': product.id,
+                'name': product.name,
+                'price': float(product.price),
+                'stock': product.stock,
+                'options': options_data
+            })
+        
+        context.update({
+            'order': order,
+            'tables': Table.objects.filter(status='AVAILABLE'),
+            'customers': Customer.objects.all(),
+            'products': products,
+            'products_json': json.dumps(products_data, cls=DjangoJSONEncoder)
+        })
+        return context
+    
+    def post(self, request, *args, **kwargs):
+        order = get_object_or_404(Order, id=self.kwargs['order_id'])
+        if order.order_status != 'PENDING':
+            return JsonResponse({'error': 'Only pending orders can be edited'}, status=400)
+            
+        try:
+            # Get form data
+            order_type = request.POST.get('order_type')
+            customer_id = request.POST.get('customer')
+            table_id = request.POST.get('table')
+            special_instructions = request.POST.get('special_instructions')
+            
+            # Update order basic info
+            order.order_type = order_type
+            order.customer_id = customer_id if customer_id else None
+            order.special_instructions = special_instructions
+            
+            # Handle table change
+            old_table_id = order.table_id
+            if old_table_id != table_id:
+                if old_table_id:
+                    # Free up old table
+                    old_table = Table.objects.get(id=old_table_id)
+                    old_table.status = 'AVAILABLE'
+                    old_table.save()
+                
+                # Assign new table
+                if table_id:
+                    new_table = Table.objects.get(id=table_id)
+                    new_table.status = 'OCCUPIED'
+                    new_table.save()
+                
+            order.table_id = table_id if table_id else None
+            
+            # Process order items
+            products = request.POST.getlist('products[]')
+            quantities = request.POST.getlist('quantities[]')
+            
+            # First, restore stock for removed items
+            for item in order.items.all():
+                item.product.stock += item.quantity
+                item.product.save()
+            
+            # Clear existing items
+            order.items.all().delete()
+            
+            # Add new items
+            total_amount = 0
+            for index, (product_id, quantity) in enumerate(zip(products, quantities)):
+                if product_id and quantity:
+                    product = Product.objects.get(id=product_id)
+                    quantity = int(quantity)
+                    
+                    # Create order item with base price
+                    order_item = OrderItem.objects.create(
+                        order=order,
+                        product=product,
+                        quantity=quantity,
+                        price=product.price,
+                        subtotal=product.price * quantity
+                    )
+                    
+                    # Handle options
+                    option_ids = request.POST.getlist(f'item_options[{index}][]')
+                    if option_ids:
+                        selected_options = ProductOptionChoice.objects.filter(id__in=option_ids)
+                        order_item.selected_options.set(selected_options)
+                        options_text = ', '.join([f"{opt.option.name}: {opt.name}" for opt in selected_options])
+                        order_item.options_text = options_text
+                        order_item.update_subtotal()
+                    
+                    # Get the latest subtotal after options are added
+                    order_item.refresh_from_db()
+                    total_amount += order_item.subtotal
+                    
+                    # Update product stock
+                    product.stock -= quantity
+                    product.save()
+            
+            # Update order total
+            order.total_amount = total_amount
+            order.save()
+            
+            return JsonResponse({'success': True})
+            
+        except Exception as e:
+            import traceback
+            return JsonResponse({
+                'success': False, 
+                'error': str(e),
+                'details': traceback.format_exc()
+            })
