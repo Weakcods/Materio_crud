@@ -5,7 +5,8 @@ from django.contrib.auth.decorators import login_required
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.utils import timezone
 from django.db.models import Count, Sum, Avg
-from pos.models import Order, Table, Product, OrderItem, Category
+from django.http import JsonResponse
+from pos.models import Order, Table, Product, OrderItem, Category, Customer, Payment
 from datetime import timedelta
 
 
@@ -207,8 +208,80 @@ class OrdersDashboardView(LoginRequiredMixin, DashboardsView):
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
-        context['orders'] = Order.objects.select_related('customer', 'table').prefetch_related('items').all()
+        context['orders'] = Order.objects.select_related(
+            'customer', 'table'
+        ).prefetch_related('items__product').all()
         return context
+
+class NewOrderView(LoginRequiredMixin, DashboardsView):
+    template_name = 'dashboard_new_order.html'
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context.update({
+            'tables': Table.objects.filter(status='AVAILABLE'),
+            'customers': Customer.objects.all(),
+            'products': Product.objects.filter(is_available=True).select_related('category')
+        })
+        return context
+    
+    def post(self, request, *args, **kwargs):
+        try:
+            # Get form data
+            order_type = request.POST.get('order_type')
+            customer_id = request.POST.get('customer')
+            table_id = request.POST.get('table')
+            special_instructions = request.POST.get('special_instructions')
+            
+            # Create order
+            order = Order.objects.create(
+                customer_id=customer_id if customer_id else None,
+                table_id=table_id if table_id else None,
+                cashier=request.user,
+                order_type=order_type,
+                special_instructions=special_instructions,
+                order_status='PENDING',
+                payment_status='PENDING'
+            )
+            
+            # Process order items
+            products = request.POST.getlist('products[]')
+            quantities = request.POST.getlist('quantities[]')
+            
+            total_amount = 0
+            for product_id, quantity in zip(products, quantities):
+                if product_id and quantity:
+                    product = Product.objects.get(id=product_id)
+                    quantity = int(quantity)
+                    
+                    # Create order item
+                    OrderItem.objects.create(
+                        order=order,
+                        product=product,
+                        quantity=quantity,
+                        price=product.price,
+                        subtotal=product.price * quantity
+                    )
+                    total_amount += product.price * quantity
+                    
+                    # Update product stock
+                    product.stock -= quantity
+                    product.save()
+            
+            # Update order total
+            order.total_amount = total_amount
+            order.save()
+            
+            # Update table status if dine-in
+            if order_type == 'DINE_IN' and table_id:
+                table = Table.objects.get(id=table_id)
+                table.status = 'OCCUPIED'
+                table.save()
+            
+            return JsonResponse({'success': True})
+            
+        except Exception as e:
+            return JsonResponse({'success': False, 'error': str(e)})
 
 class TablesDashboardView(LoginRequiredMixin, DashboardsView):
     template_name = 'dashboard_tables.html'
