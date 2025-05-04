@@ -1,6 +1,9 @@
 from django.contrib import admin
 from django.utils.html import format_html
-from .models import Category, Product, Customer, Order, OrderItem, Payment, Table
+from .models import (
+    Category, Product, Customer, Order, OrderItem, 
+    Payment, Table, ProductOption, ProductOptionChoice
+)
 
 @admin.register(Category)
 class CategoryAdmin(admin.ModelAdmin):
@@ -19,11 +22,27 @@ class ProductAdmin(admin.ModelAdmin):
     list_filter = ('category', 'is_available', 'is_featured', 'spicy_level')
     search_fields = ('name', 'description', 'barcode')
     ordering = ('category', 'name')
+    filter_horizontal = ('options',)
     
     def spicy_level_display(self, obj):
         spicy_icons = '🌶️' * obj.spicy_level if obj.spicy_level > 0 else 'Not Spicy'
         return spicy_icons
     spicy_level_display.short_description = 'Spicy Level'
+
+    fieldsets = (
+        ('Basic Information', {
+            'fields': ('name', 'category', 'description', 'price', 'image')
+        }),
+        ('Status', {
+            'fields': ('is_available', 'is_featured', 'stock')
+        }),
+        ('Product Options', {
+            'fields': ('options',)
+        }),
+        ('Additional Details', {
+            'fields': ('preparation_time', 'allergens', 'calories', 'spicy_level', 'barcode')
+        })
+    )
 
 @admin.register(Table)
 class TableAdmin(admin.ModelAdmin):
@@ -68,7 +87,7 @@ class OrderAdmin(admin.ModelAdmin):
         }),
         ('Additional Information', {
             'fields': ('special_instructions', 'notes')
-        }),
+        } ),
     )
 
 @admin.register(Payment)
@@ -77,3 +96,19 @@ class PaymentAdmin(admin.ModelAdmin):
     list_filter = ('payment_method', 'payment_date')
     search_fields = ('order__id', 'transaction_id')
     readonly_fields = ('created_at', 'updated_at')
+
+@admin.register(ProductOption)
+class ProductOptionAdmin(admin.ModelAdmin):
+    list_display = ('name', 'is_required', 'created_at')
+    search_fields = ('name',)
+    list_filter = ('is_required',)
+
+class ProductOptionChoiceInline(admin.TabularInline):
+    model = ProductOptionChoice
+    extra = 1
+
+@admin.register(ProductOptionChoice)
+class ProductOptionChoiceAdmin(admin.ModelAdmin):
+    list_display = ('name', 'option', 'additional_price', 'is_available')
+    list_filter = ('option', 'is_available')
+    search_fields = ('name', 'option__name')

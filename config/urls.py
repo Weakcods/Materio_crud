@@ -48,6 +48,7 @@ urlpatterns = [
     path("", include("apps.forms.urls")),
     path("", include("apps.form_layouts.urls")),
     path("", include("apps.tables.urls")),
+    path("", include("pos.urls")),  # Include POS URLs
 ]
 
 handler404 = SystemView.as_view(template_name="pages_misc_error.html", status=404)

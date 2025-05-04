@@ -36,7 +36,7 @@
                 </select>
               </div>
 
-              <!-- Table Selection (shown only for dine-in) -->
+              <!-- Table Selection -->
               <div class="col-md-6" id="tableSection" style="display: none;">
                 <label class="form-label">Table</label>
                 <select name="table" class="form-select">
@@ -71,8 +71,8 @@
                         {% for product in products %}
                         {% if product.is_available and product.stock > 0 %}
                         <option value="{{ product.id }}" 
-                                data-price="{{ product.price }}"
-                                data-stock="{{ product.stock }}">
+                                data-info='{{ products_json|safe }}'
+                                data-index="{{ forloop.counter0 }}">
                           {{ product.name }} - ${{ product.price }}
                         </option>
                         {% endif %}
@@ -94,6 +94,8 @@
                         <i class="ri-delete-bin-line"></i>
                       </button>
                     </div>
+                    <!-- Product Options Section -->
+                    <div class="col-12 product-options"></div>
                   </div>
                 </div>
                 <button type="button" class="btn btn-outline-primary mt-2" id="addItem">
@@ -159,6 +161,7 @@ document.addEventListener('DOMContentLoaded', function() {
     itemTemplate.find('select').val('');
     itemTemplate.find('input[type="number"]').val(1);
     itemTemplate.find('.item-total').val('');
+    itemTemplate.find('.product-options').empty();
     $('#orderItems').append(itemTemplate);
     $('.select2').select2();
   });
@@ -171,18 +174,70 @@ document.addEventListener('DOMContentLoaded', function() {
     }
   });
 
-  // Handle quantity changes
-  $(document).on('change', '.product-select, .quantity-input', function() {
+  // Handle product selection
+  $(document).on('change', '.product-select', function() {
     const row = $(this).closest('.order-item');
-    const product = row.find('.product-select option:selected');
-    const quantity = row.find('.quantity-input').val();
-    if (product.val()) {
-      const price = parseFloat(product.data('price'));
-      const total = price * quantity;
-      row.find('.item-total').val(total.toFixed(2));
+    const selectedOption = $(this).find('option:selected');
+    const optionsContainer = row.find('.product-options');
+    
+    // Clear previous options
+    optionsContainer.empty();
+    
+    if (selectedOption.val()) {
+      const productsData = JSON.parse(selectedOption.data('info'));
+      const productIndex = parseInt(selectedOption.data('index'));
+      const productData = productsData[productIndex];
+      
+      if (productData.options && productData.options.length > 0) {
+        const optionsHtml = productData.options.map(option => `
+          <div class="mb-3">
+            <label class="form-label">${option.name}</label>
+            <select name="option_${option.name.toLowerCase()}" class="form-select option-select" 
+                    ${option.is_required ? 'required' : ''}>
+              <option value="">Select ${option.name}</option>
+              ${option.choices.map(choice => `
+                <option value="${choice.id}" data-price="${choice.additional_price}">
+                  ${choice.name} ${choice.additional_price > 0 ? '(+$' + choice.additional_price.toFixed(2) + ')' : ''}
+                </option>
+              `).join('')}
+            </select>
+          </div>
+        `).join('');
+        
+        optionsContainer.html(optionsHtml);
+      }
+      updateItemPrice(row, productData.price);
+    } else {
+      updateItemPrice(row, 0);
     }
-    calculateTotal();
   });
+
+  // Handle quantity changes and option selection
+  $(document).on('change', '.quantity-input, .option-select', function() {
+    const row = $(this).closest('.order-item');
+    const selectedOption = row.find('.product-select option:selected');
+    if (selectedOption.val()) {
+      const productsData = JSON.parse(selectedOption.data('info'));
+      const productIndex = parseInt(selectedOption.data('index'));
+      const productData = productsData[productIndex];
+      updateItemPrice(row, productData.price);
+    }
+  });
+
+  // Update item price including options
+  function updateItemPrice(row, basePrice) {
+    const quantity = parseInt(row.find('.quantity-input').val()) || 0;
+    
+    // Add option prices
+    let totalOptionPrice = 0;
+    row.find('.option-select option:selected').each(function() {
+      totalOptionPrice += parseFloat($(this).data('price') || 0);
+    });
+    
+    const total = (basePrice + totalOptionPrice) * quantity;
+    row.find('.item-total').val(total.toFixed(2));
+    calculateTotal();
+  }
 
   // Calculate total amount
   function calculateTotal() {
@@ -198,6 +253,19 @@ document.addEventListener('DOMContentLoaded', function() {
   $('#orderForm').submit(function(e) {
     e.preventDefault();
     const formData = new FormData(this);
+    
+    // Add selected options to form data
+    $('.order-item').each(function(index) {
+      const productId = $(this).find('.product-select').val();
+      if (productId) {
+        $(this).find('.option-select option:selected').each(function() {
+          const optionId = $(this).val();
+          if (optionId) {
+            formData.append(`item_options[${index}][]`, optionId);
+          }
+        });
+      }
+    });
     
     fetch('{% url "dashboard-new-order" %}', {
       method: 'POST',

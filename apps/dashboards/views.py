@@ -217,11 +217,38 @@ class NewOrderView(LoginRequiredMixin, DashboardsView):
     template_name = 'dashboard_new_order.html'
 
     def get_context_data(self, **kwargs):
+        from django.core.serializers.json import DjangoJSONEncoder
+        import json
+        
         context = super().get_context_data(**kwargs)
+        products = Product.objects.filter(is_available=True).select_related('category')
+        
+        # Prepare products data with serialized options
+        products_data = []
+        for product in products:
+            options_data = []
+            for option in product.options.all():
+                choices = option.choices.filter(is_available=True).values('id', 'name', 'additional_price')
+                if choices:
+                    options_data.append({
+                        'name': option.name,
+                        'is_required': option.is_required,
+                        'choices': list(choices)
+                    })
+            
+            products_data.append({
+                'id': product.id,
+                'name': product.name,
+                'price': float(product.price),
+                'stock': product.stock,
+                'options': options_data
+            })
+        
         context.update({
             'tables': Table.objects.filter(status='AVAILABLE'),
             'customers': Customer.objects.all(),
-            'products': Product.objects.filter(is_available=True).select_related('category')
+            'products': products,
+            'products_json': json.dumps(products_data, cls=DjangoJSONEncoder)
         })
         return context
     
@@ -249,20 +276,36 @@ class NewOrderView(LoginRequiredMixin, DashboardsView):
             quantities = request.POST.getlist('quantities[]')
             
             total_amount = 0
-            for product_id, quantity in zip(products, quantities):
+            for index, (product_id, quantity) in enumerate(zip(products, quantities)):
                 if product_id and quantity:
                     product = Product.objects.get(id=product_id)
                     quantity = int(quantity)
                     
+                    # Get selected options
+                    selected_options = []
+                    options_price = 0
+                    if f'item_options[{index}][]' in request.POST:
+                        option_ids = request.POST.getlist(f'item_options[{index}][]')
+                        selected_options = ProductOptionChoice.objects.filter(id__in=option_ids)
+                        options_price = sum(option.additional_price for option in selected_options)
+                    
                     # Create order item
-                    OrderItem.objects.create(
+                    order_item = OrderItem.objects.create(
                         order=order,
                         product=product,
                         quantity=quantity,
                         price=product.price,
-                        subtotal=product.price * quantity
+                        subtotal=(product.price + options_price) * quantity
                     )
-                    total_amount += product.price * quantity
+                    
+                    # Add selected options
+                    if selected_options:
+                        order_item.selected_options.set(selected_options)
+                        options_text = ', '.join([f"{opt.option.name}: {opt.name}" for opt in selected_options])
+                        order_item.options_text = options_text
+                        order_item.save()
+                    
+                    total_amount += order_item.subtotal
                     
                     # Update product stock
                     product.stock -= quantity

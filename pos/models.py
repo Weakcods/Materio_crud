@@ -18,6 +18,29 @@ class Category(models.Model):
         verbose_name_plural = "Categories"
         ordering = ['display_order', 'name']
 
+class ProductOption(models.Model):
+    """For options like 'Size', 'Temperature', 'Sugar Level', etc."""
+    name = models.CharField(max_length=100)  # e.g., "Size", "Temperature"
+    description = models.TextField(blank=True, null=True)
+    is_required = models.BooleanField(default=False)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return self.name
+
+class ProductOptionChoice(models.Model):
+    """For specific choices like 'Small', 'Medium', 'Large' or 'Hot', 'Cold'"""
+    option = models.ForeignKey(ProductOption, on_delete=models.CASCADE, related_name='choices')
+    name = models.CharField(max_length=100)  # e.g., "Small", "Hot"
+    additional_price = models.DecimalField(max_digits=10, decimal_places=2, default=0)
+    is_available = models.BooleanField(default=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return f"{self.option.name} - {self.name}"
+
 class Product(models.Model):
     name = models.CharField(max_length=100)
     category = models.ForeignKey(Category, on_delete=models.SET_NULL, null=True, related_name='products')
@@ -32,6 +55,7 @@ class Product(models.Model):
     spicy_level = models.IntegerField(default=0, choices=[(0, 'Not Spicy'), (1, 'Mild'), (2, 'Medium'), (3, 'Hot'), (4, 'Extra Hot')])
     stock = models.IntegerField(default=0)
     barcode = models.CharField(max_length=100, unique=True, blank=True, null=True)
+    options = models.ManyToManyField(ProductOption, blank=True, related_name='products')
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -125,12 +149,17 @@ class OrderItem(models.Model):
     order = models.ForeignKey(Order, on_delete=models.CASCADE, related_name='items')
     product = models.ForeignKey(Product, on_delete=models.SET_NULL, null=True, related_name='order_items')
     quantity = models.IntegerField(default=1)
-    price = models.DecimalField(max_digits=10, decimal_places=2)  # Price at the time of purchase
+    price = models.DecimalField(max_digits=10, decimal_places=2)
     subtotal = models.DecimalField(max_digits=10, decimal_places=2)
+    selected_options = models.ManyToManyField(ProductOptionChoice, blank=True, related_name='order_items')
+    options_text = models.TextField(blank=True, null=True, help_text='Text representation of selected options')
     created_at = models.DateTimeField(auto_now_add=True)
 
     def save(self, *args, **kwargs):
-        self.subtotal = self.quantity * self.price
+        base_price = self.price
+        options_price = sum(option.additional_price for option in self.selected_options.all())
+        total_price = base_price + options_price
+        self.subtotal = self.quantity * total_price
         super().save(*args, **kwargs)
 
     def __str__(self):
