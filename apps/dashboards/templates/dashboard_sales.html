@@ -118,20 +118,17 @@
                 </tr>
               </thead>
               <tbody>
-                {% with total_category_sales=category_sales|dictsort:"total_sales"|reverse %}
-                {% for category in total_category_sales %}
+                {% for category in category_sales %}
                 <tr>
                   <td>{{ category.product__category__name|default:"Uncategorized" }}</td>
                   <td class="text-end">${{ category.total_sales|floatformat:2 }}</td>
                   <td class="text-end">
-                    {% with percentage=category.total_sales|div:sales_data.total_sales|mul:100 %}
                     <div class="d-flex justify-content-end align-items-center gap-3">
-                      <span>{{ percentage|floatformat:1 }}%</span>
+                      <span>{{ category.percentage|floatformat:1 }}%</span>
                       <div class="progress w-25" style="height: 5px">
-                        <div class="progress-bar bg-primary" style="width: {{ percentage }}%" role="progressbar" aria-valuenow="{{ percentage }}" aria-valuemin="0" aria-valuemax="100"></div>
+                        <div class="progress-bar bg-primary" style="width: {{ category.percentage }}%" role="progressbar" aria-valuenow="{{ category.percentage }}" aria-valuemin="0" aria-valuemax="100"></div>
                       </div>
                     </div>
-                    {% endwith %}
                   </td>
                 </tr>
                 {% empty %}
@@ -139,7 +136,6 @@
                   <td colspan="3" class="text-center">No category data available</td>
                 </tr>
                 {% endfor %}
-                {% endwith %}
               </tbody>
             </table>
           </div>

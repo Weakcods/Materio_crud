@@ -176,18 +176,23 @@ class SalesDashboardView(LoginRequiredMixin, DashboardsView):
             'product__name'
         ).annotate(
             total_quantity=Sum('quantity'),
-            total_revenue=Sum('total_price')
+            total_revenue=Sum('subtotal')
         ).order_by('-total_quantity')[:5]
         
-        # Sales by category
         category_sales = OrderItem.objects.filter(
             order__created_at__range=[start_date, end_date],
             order__order_status='COMPLETED'
         ).values(
             'product__category__name'
         ).annotate(
-            total_sales=Sum('total_price')
+            total_sales=Sum('subtotal')
         ).order_by('-total_sales')
+
+        # Calculate percentages if there are sales
+        total_sales = sales_data.get('total_sales') or 0
+        if total_sales > 0:
+            for category in category_sales:
+                category['percentage'] = (category['total_sales'] / total_sales) * 100
         
         context.update({
             'sales_data': sales_data,
