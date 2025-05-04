@@ -149,21 +149,22 @@ class OrderItem(models.Model):
     order = models.ForeignKey(Order, on_delete=models.CASCADE, related_name='items')
     product = models.ForeignKey(Product, on_delete=models.SET_NULL, null=True, related_name='order_items')
     quantity = models.IntegerField(default=1)
-    price = models.DecimalField(max_digits=10, decimal_places=2)
-    subtotal = models.DecimalField(max_digits=10, decimal_places=2)
+    price = models.DecimalField(max_digits=10, decimal_places=2)  # Base price at time of purchase
+    subtotal = models.DecimalField(max_digits=10, decimal_places=2)  # Total price including options
     selected_options = models.ManyToManyField(ProductOptionChoice, blank=True, related_name='order_items')
     options_text = models.TextField(blank=True, null=True, help_text='Text representation of selected options')
     created_at = models.DateTimeField(auto_now_add=True)
 
-    def save(self, *args, **kwargs):
-        base_price = self.price
-        options_price = sum(option.additional_price for option in self.selected_options.all())
-        total_price = base_price + options_price
-        self.subtotal = self.quantity * total_price
-        super().save(*args, **kwargs)
-
     def __str__(self):
         return f"{self.product} x {self.quantity}"
+
+    def update_subtotal(self):
+        """Calculate subtotal including options after the instance is saved"""
+        base_price = self.price
+        options_price = sum(option.additional_price for option in self.selected_options.all())
+        self.subtotal = (base_price + options_price) * self.quantity
+        # Use update to avoid recursive save
+        OrderItem.objects.filter(pk=self.pk).update(subtotal=self.subtotal)
 
 class Payment(models.Model):
     PAYMENT_METHOD_CHOICES = [

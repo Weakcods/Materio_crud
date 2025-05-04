@@ -11,9 +11,23 @@
 {% endblock vendor_css %}
 
 {% block content %}
+<!-- Toast container for notifications -->
+<div class="bs-toast toast toast-placement-ex m-2" role="alert" aria-live="assertive" aria-atomic="true" data-bs-delay="2000">
+  <div class="toast-header">
+    <i class="ri-checkbox-circle-fill text-success me-2"></i>
+    <div class="me-auto fw-medium">Success</div>
+    <small>Just now</small>
+    <button type="button" class="btn-close" data-bs-dismiss="toast" aria-label="Close"></button>
+  </div>
+  <div class="toast-body">
+    Order created successfully!
+  </div>
+</div>
+
 <div class="container-xxl flex-grow-1 container-p-y">
   <div class="row">
-    <div class="col-12">
+    <!-- Order Details Card -->
+    <div class="col-md-8">
       <div class="card">
         <div class="card-header d-flex justify-content-between align-items-center">
           <h5 class="card-title mb-0">New Order</h5>
@@ -50,7 +64,7 @@
               </div>
 
               <!-- Customer Information -->
-              <div class="col-md-6">
+              <div class="col-md-12">
                 <label class="form-label">Customer</label>
                 <select name="customer" class="select2 form-select" data-allow-clear="true">
                   <option value="">Walk-in Customer</option>
@@ -60,72 +74,87 @@
                 </select>
               </div>
 
-              <!-- Products Section -->
-              <div class="col-12">
-                <h6 class="my-3">Order Items</h6>
-                <div id="orderItems">
-                  <div class="row g-3 mb-3 order-item">
-                    <div class="col-md-6">
-                      <select name="products[]" class="select2 form-select product-select" required>
-                        <option value="">Select Product</option>
-                        {% for product in products %}
-                        {% if product.is_available and product.stock > 0 %}
-                        <option value="{{ product.id }}" 
-                                data-info='{{ products_json|safe }}'
-                                data-index="{{ forloop.counter0 }}">
-                          {{ product.name }} - ${{ product.price }}
-                        </option>
-                        {% endif %}
-                        {% endfor %}
-                      </select>
-                    </div>
-                    <div class="col-md-2">
-                      <input type="number" name="quantities[]" class="form-control quantity-input" 
-                             min="1" value="1" required>
-                    </div>
-                    <div class="col-md-3">
-                      <div class="input-group">
-                        <span class="input-group-text">$</span>
-                        <input type="text" class="form-control item-total" readonly>
-                      </div>
-                    </div>
-                    <div class="col-md-1">
-                      <button type="button" class="btn btn-icon btn-outline-danger remove-item">
-                        <i class="ri-delete-bin-line"></i>
-                      </button>
-                    </div>
-                    <!-- Product Options Section -->
-                    <div class="col-12 product-options"></div>
-                  </div>
-                </div>
-                <button type="button" class="btn btn-outline-primary mt-2" id="addItem">
-                  <i class="ri-add-line me-1"></i>Add Item
-                </button>
-              </div>
-
-              <!-- Order Summary -->
-              <div class="col-12">
-                <div class="card bg-light mt-4">
-                  <div class="card-body">
-                    <div class="d-flex justify-content-between mb-2">
-                      <h6 class="mb-0">Total Amount:</h6>
-                      <h5 class="mb-0">$<span id="totalAmount">0.00</span></h5>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
               <!-- Special Instructions -->
               <div class="col-12">
                 <label class="form-label">Special Instructions</label>
-                <textarea name="special_instructions" class="form-control" rows="3"></textarea>
-              </div>
-
-              <div class="col-12">
-                <button type="submit" class="btn btn-primary">Create Order</button>
+                <textarea name="special_instructions" class="form-control" rows="2"></textarea>
               </div>
             </div>
           </form>
+        </div>
+      </div>
+    </div>
+
+    <!-- Order Summary Card -->
+    <div class="col-md-4">
+      <div class="card">
+        <div class="card-header">
+          <h5 class="card-title mb-0">Order Summary</h5>
+        </div>
+        <div class="card-body">
+          <div class="d-flex justify-content-between mb-3">
+            <h6 class="mb-0">Total Amount:</h6>
+            <h5 class="mb-0">$<span id="totalAmount">0.00</span></h5>
+          </div>
+          <button type="submit" form="orderForm" class="btn btn-primary w-100">Create Order</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Products Section -->
+    <div class="col-12">
+      <div class="card">
+        <div class="card-header d-flex justify-content-between align-items-center">
+          <h5 class="card-title mb-0">Order Items</h5>
+          <button type="button" class="btn btn-primary" id="addItem">
+            <i class="ri-add-line me-1"></i>Add Item
+          </button>
+        </div>
+        <div class="card-body">
+          <div id="orderItems">
+            <div class="order-item card mb-3">
+              <div class="card-body">
+                <div class="row g-3">
+                  <div class="col-md-5">
+                    <label class="form-label">Product</label>
+                    <select name="products[]" class="select2 form-select product-select" required>
+                      <option value="">Select Product</option>
+                      {% for product in products %}
+                      {% if product.is_available and product.stock > 0 %}
+                      <option value="{{ product.id }}" 
+                              data-info='{{ products_json|safe }}'
+                              data-index="{{ forloop.counter0 }}">
+                        {{ product.name }} - ${{ product.price }}
+                      </option>
+                      {% endif %}
+                      {% endfor %}
+                    </select>
+                  </div>
+                  <div class="col-md-2">
+                    <label class="form-label">Quantity</label>
+                    <input type="number" name="quantities[]" class="form-control quantity-input" 
+                           min="1" value="1" required>
+                  </div>
+                  <div class="col-md-4">
+                    <label class="form-label">Subtotal</label>
+                    <div class="input-group">
+                      <span class="input-group-text">$</span>
+                      <input type="text" class="form-control item-total" readonly>
+                    </div>
+                  </div>
+                  <div class="col-md-1 d-flex align-items-end">
+                    <button type="button" class="btn btn-icon btn-outline-danger remove-item">
+                      <i class="ri-delete-bin-line"></i>
+                    </button>
+                  </div>
+                  <!-- Product Options Section -->
+                  <div class="col-12">
+                    <div class="product-options mt-2"></div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
     </div>
@@ -144,6 +173,10 @@ document.addEventListener('DOMContentLoaded', function() {
   // Initialize Select2
   $('.select2').select2();
 
+  // Initialize toast
+  const toast = document.querySelector('.bs-toast');
+  const bsToast = new bootstrap.Toast(toast);
+
   // Handle order type change
   $('select[name="order_type"]').change(function() {
     if (this.value === 'DINE_IN') {
@@ -158,12 +191,12 @@ document.addEventListener('DOMContentLoaded', function() {
   // Handle adding items
   $('#addItem').click(function() {
     const itemTemplate = $('.order-item').first().clone();
-    itemTemplate.find('select').val('');
+    itemTemplate.find('select').val('').trigger('change');
     itemTemplate.find('input[type="number"]').val(1);
     itemTemplate.find('.item-total').val('');
     itemTemplate.find('.product-options').empty();
     $('#orderItems').append(itemTemplate);
-    $('.select2').select2();
+    itemTemplate.find('.select2').select2();
   });
 
   // Handle removing items
@@ -204,7 +237,14 @@ document.addEventListener('DOMContentLoaded', function() {
           </div>
         `).join('');
         
-        optionsContainer.html(optionsHtml);
+        optionsContainer.html(`
+          <div class="card bg-light">
+            <div class="card-body">
+              <h6 class="mb-3">Product Options</h6>
+              ${optionsHtml}
+            </div>
+          </div>
+        `);
       }
       updateItemPrice(row, productData.price);
     } else {
@@ -277,7 +317,12 @@ document.addEventListener('DOMContentLoaded', function() {
     .then(response => response.json())
     .then(data => {
       if (data.success) {
-        window.location.href = '{% url "dashboard-orders" %}';
+        // Show success toast
+        bsToast.show();
+        // Redirect after toast is shown
+        setTimeout(() => {
+          window.location.href = 'http://127.0.0.1:8000/dashboard/pos/orders/';
+        }, 1000);
       } else {
         alert(data.error || 'Error creating order');
       }

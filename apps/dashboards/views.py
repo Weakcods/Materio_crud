@@ -281,30 +281,29 @@ class NewOrderView(LoginRequiredMixin, DashboardsView):
                     product = Product.objects.get(id=product_id)
                     quantity = int(quantity)
                     
-                    # Get selected options
-                    selected_options = []
-                    options_price = 0
-                    if f'item_options[{index}][]' in request.POST:
-                        option_ids = request.POST.getlist(f'item_options[{index}][]')
-                        selected_options = ProductOptionChoice.objects.filter(id__in=option_ids)
-                        options_price = sum(option.additional_price for option in selected_options)
-                    
-                    # Create order item
+                    # Create order item with base price
                     order_item = OrderItem.objects.create(
                         order=order,
                         product=product,
                         quantity=quantity,
                         price=product.price,
-                        subtotal=(product.price + options_price) * quantity
+                        subtotal=product.price * quantity  # Initial subtotal with just base price
                     )
                     
-                    # Add selected options
-                    if selected_options:
+                    # Handle options after order item is created
+                    option_ids = request.POST.getlist(f'item_options[{index}][]')
+                    if option_ids:
+                        selected_options = ProductOptionChoice.objects.filter(id__in=option_ids)
+                        # Add selected options
                         order_item.selected_options.set(selected_options)
+                        # Update options text
                         options_text = ', '.join([f"{opt.option.name}: {opt.name}" for opt in selected_options])
                         order_item.options_text = options_text
-                        order_item.save()
+                        # Update subtotal with options
+                        order_item.update_subtotal()
                     
+                    # Get the latest subtotal after options are added
+                    order_item.refresh_from_db()
                     total_amount += order_item.subtotal
                     
                     # Update product stock
@@ -324,7 +323,12 @@ class NewOrderView(LoginRequiredMixin, DashboardsView):
             return JsonResponse({'success': True})
             
         except Exception as e:
-            return JsonResponse({'success': False, 'error': str(e)})
+            import traceback
+            return JsonResponse({
+                'success': False, 
+                'error': str(e),
+                'details': traceback.format_exc()
+            })
 
 class TablesDashboardView(LoginRequiredMixin, DashboardsView):
     template_name = 'dashboard_tables.html'
@@ -389,3 +393,79 @@ class SalesDashboardView(LoginRequiredMixin, DashboardsView):
         })
         
         return context
+
+from django.http import JsonResponse
+from django.shortcuts import get_object_or_404
+
+class OrderDetailView(LoginRequiredMixin, DashboardsView):
+    def get(self, request, order_id):
+        order = get_object_or_404(Order.objects.select_related('customer').prefetch_related('items__product'), id=order_id)
+        data = {
+            'id': order.id,
+            'customer': {'name': order.customer.name} if order.customer else None,
+            'order_type': order.order_type,
+            'order_type_display': order.get_order_type_display(),
+            'order_status': order.order_status,
+            'order_status_display': order.get_order_status_display(),
+            'payment_status': order.payment_status,
+            'payment_status_display': order.get_payment_status_display(),
+            'total_amount': float(order.total_amount),
+            'created_at': order.created_at.isoformat(),
+            'items': [{
+                'product': {'name': item.product.name},
+                'quantity': item.quantity,
+                'price': float(item.price),
+                'subtotal': float(item.subtotal)
+            } for item in order.items.all()]
+        }
+        return JsonResponse(data)
+
+    def delete(self, request, order_id):
+        order = get_object_or_404(Order, id=order_id)
+        if order.order_status != 'PENDING':
+            return JsonResponse({'error': 'Can only delete pending orders'}, status=400)
+        order.delete()
+        return JsonResponse({'success': True})
+
+class OrderPaymentView(LoginRequiredMixin, DashboardsView):
+    def post(self, request, order_id):
+        order = get_object_or_404(Order, id=order_id)
+        if order.payment_status != 'PENDING':
+            return JsonResponse({'error': 'Order is already paid or payment failed'}, status=400)
+        
+        payment_method = request.POST.get('payment_method')
+        amount = request.POST.get('amount')
+        
+        if not payment_method or not amount:
+            return JsonResponse({'error': 'Payment method and amount are required'}, status=400)
+            
+        try:
+            amount = float(amount)
+            if amount != float(order.total_amount):
+                return JsonResponse({'error': 'Invalid payment amount'}, status=400)
+                
+            # Create payment record
+            Payment.objects.create(
+                order=order,
+                amount=amount,
+                payment_method=payment_method
+            )
+            
+            # Update order status
+            order.payment_status = 'PAID'
+            order.save()
+            
+            return JsonResponse({'success': True})
+        except ValueError:
+            return JsonResponse({'error': 'Invalid amount'}, status=400)
+        except Exception as e:
+            return JsonResponse({'error': str(e)}, status=500)
+
+class OrderReceiptView(LoginRequiredMixin, DashboardsView):
+    def get(self, request, order_id):
+        order = get_object_or_404(Order.objects.select_related('customer').prefetch_related('items__product'), id=order_id)
+        if order.payment_status != 'PAID':
+            return JsonResponse({'error': 'Cannot print receipt for unpaid order'}, status=400)
+        
+        # TODO: Generate PDF receipt
+        return JsonResponse({'error': 'Receipt printing not implemented'}, status=501)

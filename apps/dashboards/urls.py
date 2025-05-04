@@ -7,7 +7,10 @@ from .views import (
     OrdersDashboardView,
     NewOrderView,
     TablesDashboardView,
-    SalesDashboardView
+    SalesDashboardView,
+    OrderDetailView,
+    OrderPaymentView,
+    OrderReceiptView
 )
 
 urlpatterns = [
@@ -24,4 +27,7 @@ urlpatterns = [
     path("pos/orders/new/", NewOrderView.as_view(), name="dashboard-new-order"),
     path("pos/tables/", TablesDashboardView.as_view(), name="dashboard-tables"),
     path("sales/", SalesDashboardView.as_view(), name="dashboard-sales"),
+    path("pos/orders/<int:order_id>/", OrderDetailView.as_view(), name="dashboard-order-detail"),
+    path("pos/orders/<int:order_id>/payment/", OrderPaymentView.as_view(), name="dashboard-order-payment"),
+    path("pos/orders/<int:order_id>/receipt/", OrderReceiptView.as_view(), name="dashboard-order-receipt"),
 ]

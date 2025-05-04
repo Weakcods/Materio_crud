@@ -1,0 +1,169 @@
+{% extends layout_path %}
+{% load static %}
+
+{% block content %}
+<div class="container-xxl flex-grow-1 container-p-y">
+  <div class="row">
+    <div class="col-12">
+      <div class="card">
+        <div class="card-header">
+          <h5 class="card-title">New Order</h5>
+        </div>
+        <div class="card-body">
+          <form id="orderForm" method="POST">
+            {% csrf_token %}
+            <div id="orderItems">
+              <div class="row g-3 mb-3 order-item">
+                <div class="col-md-6">
+                  <label class="form-label">Product</label>
+                  <select name="products[]" class="form-select product-select" required>
+                    <option value="">Select Product</option>
+                    {% for product in products %}
+                    {% if product.is_available and product.stock > 0 %}
+                    <option value="{{ product.id }}" data-price="{{ product.price }}">
+                      {{ product.name }} - ${{ product.price }}
+                    </option>
+                    {% endif %}
+                    {% endfor %}
+                  </select>
+                </div>
+                <div class="col-md-2">
+                  <label class="form-label">Quantity</label>
+                  <input type="number" name="quantities[]" class="form-control quantity-input" 
+                         min="1" value="1" required>
+                </div>
+                <div class="col-md-3">
+                  <label class="form-label">Total</label>
+                  <div class="input-group">
+                    <span class="input-group-text">$</span>
+                    <input type="text" class="form-control item-total" readonly>
+                  </div>
+                </div>
+                <div class="col-md-1">
+                  <label class="form-label">&nbsp;</label>
+                  <button type="button" class="btn btn-icon btn-outline-danger remove-item">
+                    <i class="ri-delete-bin-line"></i>
+                  </button>
+                </div>
+              </div>
+            </div>
+            
+            <button type="button" class="btn btn-outline-primary mt-2" id="addItem">
+              <i class="ri-add-line me-1"></i>Add Item
+            </button>
+
+            <div class="card bg-light mt-4">
+              <div class="card-body">
+                <div class="d-flex justify-content-between mb-2">
+                  <h6 class="mb-0">Total Amount:</h6>
+                  <h5 class="mb-0">$<span id="totalAmount">0.00</span></h5>
+                </div>
+              </div>
+            </div>
+
+            <div class="mt-4">
+              <button type="submit" class="btn btn-primary">Create Order</button>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+  // Handle product selection
+  $(document).on('change', '.product-select, .quantity-input', function() {
+    const row = $(this).closest('.order-item');
+    const selectedOption = row.find('.product-select option:selected');
+    const quantity = parseInt(row.find('.quantity-input').val()) || 0;
+    
+    if (selectedOption.val()) {
+      const price = parseFloat(selectedOption.data('price')) || 0;
+      const total = price * quantity;
+      row.find('.item-total').val(total.toFixed(2));
+    } else {
+      row.find('.item-total').val('0.00');
+    }
+    
+    calculateTotal();
+  });
+
+  // Handle adding items
+  $('#addItem').click(function() {
+    const itemTemplate = $('.order-item').first().clone();
+    itemTemplate.find('select').val('');
+    itemTemplate.find('input[type="number"]').val(1);
+    itemTemplate.find('.item-total').val('');
+    $('#orderItems').append(itemTemplate);
+  });
+
+  // Handle removing items
+  $(document).on('click', '.remove-item', function() {
+    if ($('.order-item').length > 1) {
+      $(this).closest('.order-item').remove();
+      calculateTotal();
+    }
+  });
+
+  // Calculate total amount
+  function calculateTotal() {
+    let total = 0;
+    $('.item-total').each(function() {
+      const value = parseFloat($(this).val()) || 0;
+      total += value;
+    });
+    $('#totalAmount').text(total.toFixed(2));
+  }
+
+  // Form submission
+  $('#orderForm').submit(function(e) {
+    e.preventDefault();
+    const formData = new FormData(this);
+    
+    fetch('{% url "create-order" %}', {
+      method: 'POST',
+      body: formData,
+      headers: {
+        'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
+      }
+    })
+    .then(response => response.json())
+    .then(data => {
+      if (data.success) {
+        // Show success toast
+        const toastContainer = document.createElement('div');
+        toastContainer.innerHTML = `
+          <div class="bs-toast toast fade show bg-success" role="alert" aria-live="assertive" aria-atomic="true">
+            <div class="toast-header">
+              <i class="ri-checkbox-circle-fill text-success me-2"></i>
+              <div class="me-auto fw-medium">Success</div>
+              <button type="button" class="btn-close" data-bs-dismiss="toast" aria-label="Close"></button>
+            </div>
+            <div class="toast-body text-white">
+              Order created successfully!
+            </div>
+          </div>
+        `;
+        document.body.appendChild(toastContainer);
+        
+        const toast = new bootstrap.Toast(toastContainer.querySelector('.toast'));
+        toast.show();
+
+        // Redirect to dashboard after 2 seconds
+        setTimeout(() => {
+          window.location.href = '{% url "dashboard-orders" %}';
+        }, 2000);
+      } else {
+        alert(data.error || 'Error creating order');
+      }
+    })
+    .catch(error => {
+      console.error('Error:', error);
+      alert('Error creating order');
+    });
+  });
+});
+</script>
+{% endblock %}
