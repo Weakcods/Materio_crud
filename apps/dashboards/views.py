@@ -21,7 +21,30 @@ class DashboardsView(TemplateView):
     def get_context_data(self, **kwargs):
         # A function to init the global layout. It is defined in web_project/__init__.py file
         context = TemplateLayout.init(self, super().get_context_data(**kwargs))
-
+        
+        # Add transaction data when viewing transactions template
+        if self.template_name == 'dashboard_transactions.html':
+            # Sample transaction data - replace with actual data from your models
+            context['transactions'] = [
+                {
+                    'id': '001',
+                    'date': timezone.now(),
+                    'description': 'Monthly subscription',
+                    'category': 'Subscription',
+                    'amount': 29.99,
+                    'status': 'completed'
+                },
+                {
+                    'id': '002',
+                    'date': timezone.now() - timedelta(days=1),
+                    'description': 'Software license',
+                    'category': 'License',
+                    'amount': -299.00,
+                    'status': 'pending'
+                },
+                # Add more sample transactions as needed
+            ]
+        
         return context
 
 @login_required
