@@ -5,8 +5,8 @@ from django.contrib.auth.decorators import login_required
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.utils import timezone
 from django.db.models import Count, Sum, Avg
-from django.http import JsonResponse
-from pos.models import Order, Table, Product, OrderItem, Category, Customer, Payment
+from django.http import JsonResponse, Http404
+from pos.models import Order, Table, Product, OrderItem, Category, Customer, Payment, ProductOptionChoice
 from datetime import timedelta
 
 
@@ -320,7 +320,10 @@ class NewOrderView(LoginRequiredMixin, DashboardsView):
                 table.status = 'OCCUPIED'
                 table.save()
             
-            return JsonResponse({'success': True})
+            return JsonResponse({
+                'success': True,
+                'message': 'Order created successfully'
+            })
             
         except Exception as e:
             import traceback
@@ -503,7 +506,7 @@ class EditOrderView(LoginRequiredMixin, DashboardsView):
         import json
         
         context = super().get_context_data(**kwargs)
-        order = get_object_or_404(Order.objects.select_related('customer', 'table')
+        order = get_object_or_404(Order.objects.select_related('customer')
                                  .prefetch_related('items__product', 'items__selected_options'), 
                                  id=self.kwargs['order_id'])
         
@@ -529,19 +532,18 @@ class EditOrderView(LoginRequiredMixin, DashboardsView):
                 'id': product.id,
                 'name': product.name,
                 'price': float(product.price),
-                'stock': product.stock,
                 'options': options_data
             })
-        
+
         context.update({
             'order': order,
-            'tables': Table.objects.filter(status='AVAILABLE'),
-            'customers': Customer.objects.all(),
             'products': products,
-            'products_json': json.dumps(products_data, cls=DjangoJSONEncoder)
+            'products_json': json.dumps(products_data, cls=DjangoJSONEncoder),
+            'customers': Customer.objects.all()  # Removed is_active filter
         })
+        
         return context
-    
+            
     def post(self, request, *args, **kwargs):
         order = get_object_or_404(Order, id=self.kwargs['order_id'])
         if order.order_status != 'PENDING':
@@ -551,7 +553,6 @@ class EditOrderView(LoginRequiredMixin, DashboardsView):
             # Get form data
             order_type = request.POST.get('order_type')
             customer_id = request.POST.get('customer')
-            table_id = request.POST.get('table')
             special_instructions = request.POST.get('special_instructions')
             
             # Update order basic info
@@ -559,22 +560,13 @@ class EditOrderView(LoginRequiredMixin, DashboardsView):
             order.customer_id = customer_id if customer_id else None
             order.special_instructions = special_instructions
             
-            # Handle table change
-            old_table_id = order.table_id
-            if old_table_id != table_id:
-                if old_table_id:
-                    # Free up old table
-                    old_table = Table.objects.get(id=old_table_id)
-                    old_table.status = 'AVAILABLE'
-                    old_table.save()
-                
-                # Assign new table
-                if table_id:
-                    new_table = Table.objects.get(id=table_id)
-                    new_table.status = 'OCCUPIED'
-                    new_table.save()
-                
-            order.table_id = table_id if table_id else None
+            # Clear any existing table assignment
+            if order.table:
+                # Free up old table
+                old_table = order.table
+                old_table.status = 'AVAILABLE'
+                old_table.save()
+                order.table = None
             
             # Process order items
             products = request.POST.getlist('products[]')
@@ -590,47 +582,53 @@ class EditOrderView(LoginRequiredMixin, DashboardsView):
             
             # Add new items
             total_amount = 0
-            for index, (product_id, quantity) in enumerate(zip(products, quantities)):
-                if product_id and quantity:
-                    product = Product.objects.get(id=product_id)
-                    quantity = int(quantity)
+            for i, (product_id, quantity) in enumerate(zip(products, quantities)):
+                if not product_id or not quantity:
+                    continue
                     
-                    # Create order item with base price
-                    order_item = OrderItem.objects.create(
-                        order=order,
-                        product=product,
-                        quantity=quantity,
-                        price=product.price,
-                        subtotal=product.price * quantity
-                    )
+                product = Product.objects.get(id=product_id)
+                quantity = int(quantity)
+                
+                # Check stock availability
+                if product.stock < quantity:
+                    return JsonResponse({
+                        'error': f'Not enough stock for {product.name}. Available: {product.stock}'
+                    }, status=400)
+                
+                # Create order item
+                item = OrderItem.objects.create(
+                    order=order,
+                    product=product,
+                    quantity=quantity,
+                    price=product.price
+                )
+                
+                # Process options if any
+                item_options = request.POST.getlist(f'item_options[{i}][]')
+                if item_options:
+                    item.selected_options.set(item_options)
                     
-                    # Handle options
-                    option_ids = request.POST.getlist(f'item_options[{index}][]')
-                    if option_ids:
-                        selected_options = ProductOptionChoice.objects.filter(id__in=option_ids)
-                        order_item.selected_options.set(selected_options)
-                        options_text = ', '.join([f"{opt.option.name}: {opt.name}" for opt in selected_options])
-                        order_item.options_text = options_text
-                        order_item.update_subtotal()
-                    
-                    # Get the latest subtotal after options are added
-                    order_item.refresh_from_db()
-                    total_amount += order_item.subtotal
-                    
-                    # Update product stock
-                    product.stock -= quantity
-                    product.save()
+                # Calculate item total including options
+                option_total = sum(
+                    choice.additional_price 
+                    for choice in item.selected_options.all()
+                )
+                item.subtotal = (product.price + option_total) * quantity
+                item.save()
+                
+                # Update stock
+                product.stock -= quantity
+                product.save()
+                
+                total_amount += item.subtotal
             
-            # Update order total
             order.total_amount = total_amount
             order.save()
             
-            return JsonResponse({'success': True})
+            return JsonResponse({
+                'success': True,
+                'message': 'Order updated successfully'
+            })
             
         except Exception as e:
-            import traceback
-            return JsonResponse({
-                'success': False, 
-                'error': str(e),
-                'details': traceback.format_exc()
-            })
+            return JsonResponse({'error': str(e)}, status=400)

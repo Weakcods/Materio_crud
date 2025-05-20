@@ -44,24 +44,8 @@
                 <label class="form-label">Order Type</label>
                 <select name="order_type" class="form-select" required>
                   <option value="">Select Order Type</option>
-                  <option value="DINE_IN" {% if order.order_type == 'DINE_IN' %}selected{% endif %}>Dine In</option>
                   <option value="TAKEAWAY" {% if order.order_type == 'TAKEAWAY' %}selected{% endif %}>Takeaway</option>
                   <option value="DELIVERY" {% if order.order_type == 'DELIVERY' %}selected{% endif %}>Delivery</option>
-                </select>
-              </div>
-
-              <!-- Table Selection -->
-              <div class="col-md-6" id="tableSection" {% if order.order_type != 'DINE_IN' %}style="display: none;"{% endif %}>
-                <label class="form-label">Table</label>
-                <select name="table" class="form-select" {% if order.order_type == 'DINE_IN' %}required{% endif %}>
-                  <option value="">Select Table</option>
-                  {% for table in tables %}
-                    {% if table.status == 'AVAILABLE' or table.id == order.table.id %}
-                    <option value="{{ table.id }}" {% if order.table.id == table.id %}selected{% endif %}>
-                      {{ table.number }} ({{ table.capacity }} seats)
-                    </option>
-                    {% endif %}
-                  {% endfor %}
                 </select>
               </div>
 
@@ -213,12 +197,8 @@ document.addEventListener('DOMContentLoaded', function() {
 
   // Handle order type change
   $('select[name="order_type"]').change(function() {
-    if (this.value === 'DINE_IN') {
-      $('#tableSection').show();
-      $('select[name="table"]').prop('required', true);
-    } else {
-      $('#tableSection').hide();
-      $('select[name="table"]').prop('required', false);
+    if (this.value === 'TAKEAWAY' || this.value === 'DELIVERY') {
+      calculateTotal();
     }
   });
 
@@ -354,11 +334,12 @@ document.addEventListener('DOMContentLoaded', function() {
         toast.querySelector('.toast-header i').classList.remove('text-danger');
         toast.querySelector('.toast-header i').classList.add('text-success');
         toast.querySelector('.toast-header .me-auto').textContent = 'Success';
-        toast.querySelector('.toast-body').textContent = 'Order updated successfully!';
+        toast.querySelector('.toast-body').textContent = data.message;
         bsToast.show();
+        
         // Redirect after toast
         setTimeout(() => {
-          window.location.href = "{% url 'dashboard-orders' %}";
+          window.location.href = "http://127.0.0.1:8000/dashboard/pos/orders/";
         }, 2000);
       } else {
         toast.querySelector('.toast-header i').classList.remove('text-success');

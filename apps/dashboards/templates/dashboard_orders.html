@@ -107,7 +107,6 @@
                   <th>Order #</th>
                   <th>Customer</th>
                   <th>Type</th>
-                  <th>Table</th>
                   <th>Items</th>
                   <th>Status</th>
                   <th>Total</th>
@@ -122,12 +121,19 @@
                   <td>#{{ order.id }}</td>
                   <td>{{ order.customer.name|default:"Walk-in" }}</td>
                   <td>{{ order.get_order_type_display }}</td>
-                  <td>{% if order.table %}{{ order.table.number }}{% else %}-{% endif %}</td>
                   <td>
-                    <div class="d-flex flex-column gap-1">
-                      {% for item in order.items.all %}
-                      <small>{{ item.product.name }} x {{ item.quantity }}</small>
-                      {% endfor %}
+                    <div class="d-flex align-items-center">
+                      <button class="btn btn-text-primary p-0 show-items" data-bs-toggle="tooltip" data-bs-placement="top" title="View Items">
+                        <span class="badge rounded-pill bg-label-info">{{ order.items.count }} items</span>
+                      </button>
+                      <div class="d-none items-detail">
+                        {% for item in order.items.all %}
+                        <div class="mb-1">
+                          <span class="fw-medium">{{ item.product.name }}</span> x {{ item.quantity }}
+                          <small class="text-muted">${{ item.subtotal }}</small>
+                        </div>
+                        {% endfor %}
+                      </div>
                     </div>
                   </td>
                   <td>
@@ -187,6 +193,12 @@
 {% block page_js %}
 <script>
 document.addEventListener('DOMContentLoaded', function() {
+  // Initialize tooltips
+  const tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
+  tooltipTriggerList.map(function (tooltipTriggerEl) {
+    return new bootstrap.Tooltip(tooltipTriggerEl);
+  });
+
   // Initialize toast
   const toast = document.querySelector('.bs-toast');
   const bsToast = new bootstrap.Toast(toast);
@@ -195,6 +207,38 @@ document.addEventListener('DOMContentLoaded', function() {
   const viewOrderModal = new bootstrap.Modal(document.getElementById('viewOrderModal'));
   const deleteOrderModal = new bootstrap.Modal(document.getElementById('deleteOrderModal'));
   const processPaymentModal = new bootstrap.Modal(document.getElementById('processPaymentModal'));
+
+  // Show Items Detail
+  document.querySelectorAll('.show-items').forEach(btn => {
+    btn.addEventListener('click', function() {
+      const itemsDetail = this.parentElement.querySelector('.items-detail');
+      const popup = document.createElement('div');
+      popup.className = 'popover bs-popover-auto fade show';
+      popup.innerHTML = `
+        <div class="popover-arrow"></div>
+        <div class="popover-body">${itemsDetail.innerHTML}</div>
+      `;
+      
+      // Remove any existing popovers
+      document.querySelectorAll('.popover').forEach(p => p.remove());
+      
+      // Position and show the popover
+      document.body.appendChild(popup);
+      const rect = this.getBoundingClientRect();
+      popup.style.position = 'absolute';
+      popup.style.top = rect.bottom + window.scrollY + 5 + 'px';
+      popup.style.left = rect.left + window.scrollX - (popup.offsetWidth / 2) + (this.offsetWidth / 2) + 'px';
+      
+      // Close popover when clicking outside
+      const closePopover = (e) => {
+        if (!popup.contains(e.target) && !this.contains(e.target)) {
+          popup.remove();
+          document.removeEventListener('click', closePopover);
+        }
+      };
+      setTimeout(() => document.addEventListener('click', closePopover), 0);
+    });
+  });
 
   // View Order
   document.querySelectorAll('.view-order').forEach(btn => {
@@ -259,90 +303,51 @@ document.addEventListener('DOMContentLoaded', function() {
 
   document.getElementById('confirmDelete').addEventListener('click', function() {
     if (orderToDelete) {
-      fetch(`/api/orders/${orderToDelete}/`, {
-        method: 'DELETE',
+      fetch(`/api/orders/${orderToDelete}/delete/`, {
+        method: 'POST',
         headers: {
           'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
         }
       })
       .then(response => response.json())
       .then(data => {
-        deleteOrderModal.hide();
         if (data.success) {
-          toast.querySelector('.toast-header i').classList.remove('text-danger');
-          toast.querySelector('.toast-header i').classList.add('text-success');
-          toast.querySelector('.toast-header .me-auto').textContent = 'Success';
-          toast.querySelector('.toast-body').textContent = data.message || 'Order deleted successfully';
-          bsToast.show();
-          // Reload page after toast
-          setTimeout(() => {
-            window.location.reload();
-          }, 2000);
+          window.location.reload();
         } else {
-          toast.querySelector('.toast-header i').classList.remove('text-success');
-          toast.querySelector('.toast-header i').classList.add('text-danger');
-          toast.querySelector('.toast-header .me-auto').textContent = 'Error';
-          toast.querySelector('.toast-body').textContent = data.error || 'Error deleting order';
-          bsToast.show();
+          alert(data.error || 'Error deleting order');
         }
-      })
-      .catch(error => {
-        deleteOrderModal.hide();
-        toast.querySelector('.toast-header i').classList.remove('text-success');
-        toast.querySelector('.toast-header i').classList.add('text-danger');
-        toast.querySelector('.toast-header .me-auto').textContent = 'Error';
-        toast.querySelector('.toast-body').textContent = 'Error deleting order';
-        bsToast.show();
       });
     }
   });
 
   // Process Payment
-  let orderToProcess = null;
   document.querySelectorAll('.process-payment').forEach(btn => {
     btn.addEventListener('click', function(e) {
       e.preventDefault();
-      orderToProcess = this.dataset.orderId;
-      // Get order details to show amount
-      fetch(`/api/orders/${orderToProcess}/`)
+      const orderId = this.dataset.orderId;
+      document.querySelector('#processPaymentModal input[name="amount"]').value = 
+        this.closest('tr').querySelector('td:nth-child(6)').textContent.replace('$', '');
+      
+      document.getElementById('confirmPayment').onclick = function() {
+        const formData = new FormData(document.getElementById('paymentForm'));
+        fetch(`/api/orders/${orderId}/process_payment/`, {
+          method: 'POST',
+          body: formData,
+          headers: {
+            'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
+          }
+        })
         .then(response => response.json())
         .then(data => {
-          document.querySelector('[name="amount"]').value = data.total_amount;
-          processPaymentModal.show();
-        });
-    });
-  });
-
-  document.getElementById('confirmPayment').addEventListener('click', function() {
-    if (orderToProcess) {
-      const formData = new FormData(document.getElementById('paymentForm'));
-      fetch(`/api/orders/${orderToProcess}/process_payment/`, {
-        method: 'POST',
-        body: formData,
-        headers: {
-          'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
-        }
-      }).then(response => response.json())
-        .then(data => {
           if (data.success) {
-            processPaymentModal.hide();
-            toast.querySelector('.toast-body').textContent = 'Payment processed successfully';
-            bsToast.show();
-            // Reload page after toast
-            setTimeout(() => {
-              window.location.reload();
-            }, 1000);
+            window.location.reload();
+          } else {
+            alert(data.error || 'Error processing payment');
           }
         });
-    }
-  });
-
-  // Edit Order
-  document.querySelectorAll('.edit-order').forEach(btn => {
-    btn.addEventListener('click', function(e) {
-      e.preventDefault();
-      const orderId = this.dataset.orderId;
-      window.location.href = `/dashboard/pos/orders/${orderId}/edit/`;
+      };
+      
+      processPaymentModal.show();
     });
   });
 
@@ -352,6 +357,15 @@ document.addEventListener('DOMContentLoaded', function() {
       e.preventDefault();
       const orderId = this.dataset.orderId;
       window.open(`/api/orders/${orderId}/print_receipt/`, '_blank');
+    });
+  });
+
+  // Edit Order
+  document.querySelectorAll('.edit-order').forEach(btn => {
+    btn.addEventListener('click', function(e) {
+      e.preventDefault();
+      const orderId = this.dataset.orderId;
+      window.location.href = `/dashboard/pos/orders/${orderId}/edit/`;
     });
   });
 });
